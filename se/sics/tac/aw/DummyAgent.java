@@ -124,7 +124,7 @@
  *  - the current game has ended
  *
  */
-
+/*Test*/
 package se.sics.tac.aw;
 import se.sics.tac.util.ArgEnumerator;
 import java.util.logging.*;
