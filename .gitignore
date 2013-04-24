@@ -1,7 +1,7 @@
 bin/
 games/
-aw0.log
-aw0.log.lck
+aw*.log
+aw*.log.lck
 *.*~
 tacagent.jar
 compile.sh
