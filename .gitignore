@@ -7,3 +7,4 @@ tacagent.jar
 compile.sh
 compile.bat
 AWManifest.txt
+.DS_Store
