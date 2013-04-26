@@ -3,9 +3,10 @@
  */
 package com.teamtaco;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import se.sics.tac.aw.TACAgent;
 
@@ -25,7 +26,7 @@ public class Client implements Comparable<Client>{
 	private int e2Bonus = 0;
 	private int e3Bonus = 0;
 	
-	private Map<Integer, Integer> satisfiedThings = new HashMap<Integer,Integer>();
+	private List<Item> satisfiedItems = new ArrayList<Item>();
 	
 	public Client (int id){
 		this.setId(id);
@@ -41,14 +42,20 @@ public class Client implements Comparable<Client>{
 		this.e3Bonus = e3Bonus;
 	}
 	
+	public List<Item> whatToBuyNext(){
+		List<Item> items = new ArrayList<Item>();
+		// check for hotel (day 1, 2, 3) if X already satisfied only show x and following days
+		// actual flight dates
+		return items;
+	}
+	
 	/**
-	 * marks that field field was satisfied for a price of price
+	 * marks an item was satisfied (auction won)
 	 * 
-	 * @param field the field that was satisfied
-	 * @param price the price
+	 * @param item the item
 	 */
-	public void satisfy(int field, int price){
-		satisfiedThings.put(field, price);
+	public void satisfy(Item item){
+		satisfiedItems.add(item);
 	}
 	
 	/**
@@ -56,14 +63,19 @@ public class Client implements Comparable<Client>{
 	 * Fields that are not necessary (events) and do not have a bonus are always satisfied.
 	 * Such fields would have a negative influence on the utility as soon as the price is > 0.
 	 * 
+	 * @deprecated method whatToBuyNext contains everything you need
+	 * 
 	 * @param field the field
 	 * @return true if the field field is satisfied or unnecessary, false otherwise
 	 */
+	@Deprecated
 	public boolean isSatisfied(int field){
-		if(satisfiedThings.containsKey(field)){
-			return satisfiedThings.containsKey(field);
+		for(Item item : satisfiedItems){
+			if(item.getType() == field){
+				return true;
+			}
 		}
-		if(field != TACAgent.ARRIVAL && field != TACAgent.DEPARTURE && field != TACAgent.HOTEL_VALUE && getBonus(field) == 0){
+		if(field != TACAgent.ARRIVAL && field != TACAgent.DEPARTURE && getBonus(field) == 0){
 			return true;
 		} else {
 			return false;
@@ -73,12 +85,18 @@ public class Client implements Comparable<Client>{
 	/**
 	 * looks up the price for field field
 	 * 
+	 * should not be used
+	 * 
 	 * @param field the field
 	 * @return the price for field field if field was already allocated, -1 otherwise
 	 */
+	@Deprecated
 	public int priceFor(int field){
-		if(satisfiedThings.containsKey(field)){
-			return satisfiedThings.get(field);
+		
+		for(Item item : satisfiedItems){
+			if(item.getType() == field){
+				return item.getActualPrice();
+			}
 		}
 		return -1;
 	}
@@ -89,17 +107,52 @@ public class Client implements Comparable<Client>{
 	 * @return the current utility
 	 */
 	public int getCurrentUtility(){
-		if(isSatisfied(TACAgent.ARRIVAL) 
-				&& isSatisfied(TACAgent.DEPARTURE)
-				&& isSatisfied(TACAgent.HOTEL_VALUE)){
+		if(isFeasible()){
 			int utility = 1000;
-			for(Entry<Integer,Integer> entry : satisfiedThings.entrySet()){
-				utility -= entry.getValue();
-				utility += getBonus(entry.getKey());
+			
+			// TODO consider penalties using getActualArrival and getActualDeparture and so on
+			boolean goodHotel = false;
+			for(Item item:satisfiedItems){
+				utility -= item.getActualPrice();
+				utility += getBonus(item.getType());
+				if(item.getType() == TACAgent.TYPE_GOOD_HOTEL){
+					goodHotel = true;
+				}
+			}
+			if(goodHotel){
+				utility+= getBonus(TACAgent.HOTEL_VALUE);
 			}
 			return utility;
 		}
 		return 0;
+	}
+	
+	public boolean isFeasible(){
+		int actualArrival = -1;
+		int actualDeparture =-1;
+		int hotelType = -1;
+		boolean[] hotels = new boolean[8];
+		for(Item item : satisfiedItems){
+			if(item.getType() == TACAgent.TYPE_INFLIGHT){
+				actualArrival = item.getDay();
+			} else if (item.getType() == TACAgent.TYPE_OUTFLIGHT) {
+				actualDeparture = item.getDay();
+			} else if (item.getType() == TACAgent.TYPE_CHEAP_HOTEL || item.getType() == TACAgent.TYPE_GOOD_HOTEL){
+				hotelType = item.getType();
+				hotels[item.getDay()] = true;
+			}
+		}
+		
+		if(actualArrival >=0 && actualDeparture >=0 && (hotelType == TACAgent.TYPE_CHEAP_HOTEL || hotelType == TACAgent.TYPE_GOOD_HOTEL)){
+			for(int i = actualArrival; i< actualDeparture;i++){
+				if(!hotels[i]){
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return false;
+		}
 	}
 	
 	/**
@@ -118,6 +171,24 @@ public class Client implements Comparable<Client>{
 		}
 	}
 
+	public int getActualArrival(){
+		for(Item item: satisfiedItems){
+			if(item.getType() == TACAgent.TYPE_INFLIGHT){
+				return item.getDay();
+			}
+		}
+		return -1;
+	}
+	
+	public int getActualDeparture(){
+		for(Item item : satisfiedItems){
+			if(item.getType() == TACAgent.TYPE_OUTFLIGHT){
+				return item.getDay();
+			}
+		}
+		return -1;
+	}
+	
 	public int getArrivalDay() {
 		return arrivalDay;
 	}
