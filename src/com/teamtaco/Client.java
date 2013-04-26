@@ -14,7 +14,7 @@ import se.sics.tac.aw.TACAgent;
  * @author Frederik
  *
  */
-public class Client {
+public class Client implements Comparable<Client>{
 	
 	private int id;
 	private int arrivalDay;
@@ -173,4 +173,24 @@ public class Client {
 	public void setId(int id) {
 		this.id = id;
 	}
+	
+	
+	/**
+	 * add the method compareTo in order to have a set order by 
+	 * for the moment by hotel desc
+	 */
+	@Override
+	public int compareTo(Client c){
+		return c.getHotelBonus() - hotelBonus;
+	}
+	
+	@Override
+	public String toString(){
+		String print = this.getId() + " " + this.getE1Bonus() + " " + this.getE2Bonus() + " " + this.getE3Bonus() + " " 
+				+ this.getArrivalDay() + " " + this.getDepartureDay() + " " + this.getHotelBonus() + 
+				" sorted by : " + this.getHotelBonus();
+		
+		return print;	
+	}
+
 }

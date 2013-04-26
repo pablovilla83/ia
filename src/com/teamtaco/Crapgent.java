@@ -4,7 +4,10 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import se.sics.tac.aw.AgentImpl;
 import se.sics.tac.aw.Bid;
@@ -19,8 +22,10 @@ import se.sics.tac.util.ArgEnumerator;
  */
 public class Crapgent extends AgentImpl {
 	
-	List<Client> clients = new ArrayList<Client>();
-
+//	List<Client> clients = new ArrayList<Client>();
+	SortedSet<Client> clients = new TreeSet<Client>();
+	
+	
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -95,7 +100,6 @@ public class Crapgent extends AgentImpl {
 			c.setHotelBonus(agent.getClientPreference(i, TACAgent.HOTEL_VALUE));
 			clients.add(c);
 		}
-
 	}
 
 	/*
@@ -119,5 +123,6 @@ public class Crapgent extends AgentImpl {
 		// TODO Auto-generated method stub
 
 	}
+	
 
 }
