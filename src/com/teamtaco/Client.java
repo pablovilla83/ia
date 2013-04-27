@@ -107,12 +107,6 @@ public class Client implements Comparable<Client>{
 			if(!item.isSatisfied() && item instanceof EventItem) {
 				((EventItem)item).setPossibleDays(unoccupiedDays);
 			}
-			// remove hotels that cannot be booked anymore
-			if(!item.isSatisfied() && item instanceof HotelItem) {
-				if(((HotelItem)item).getDay() < firstDay) {
-					itemsToRemove.add(item);
-				}
-			}
 			// update flight-days
 			if(!item.isSatisfied() && item instanceof FlightItem) {
 				switch(((FlightItem)item).getType()) {
