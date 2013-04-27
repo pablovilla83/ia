@@ -5,6 +5,18 @@ public class Item {
 	private int day;
 	private int maxPrice;
 	private int actualPrice;
+	
+	public Item(){
+		
+	}
+	
+	public Item(int type, int day, int maxPrice, int actualPrice){
+		this.type = type;
+		this.day = day;
+		this.maxPrice = maxPrice;
+		this.actualPrice = actualPrice;
+	}
+	
 	public int getType() {
 		return type;
 	}
