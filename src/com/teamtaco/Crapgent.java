@@ -21,7 +21,7 @@ public class Crapgent extends AgentImpl {
 	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
-	Price prices= new Price(28);
+	float[] prices= new float[28];
 	
 	/*
 	 * (non-Javadoc)
@@ -42,7 +42,8 @@ public class Crapgent extends AgentImpl {
 	public void quoteUpdated(Quote quote) {
 		// here comes update of bids
 		int auction = quote.getAuction();
-		prices.setPrice(auction, (int) quote.getAskPrice());
+		prices[auction] = quote.getAskPrice();
+		
 	}
 
 	@Override
@@ -98,6 +99,7 @@ public class Crapgent extends AgentImpl {
 			c.setDepartureDay(agent.getClientPreference(i, TACAgent.DEPARTURE));
 			c.setHotelBonus(agent.getClientPreference(i, TACAgent.HOTEL_VALUE));
 			clients.add(c);
+			//TODO: calculateMaxPrice(c);
 		}
 	}
 
@@ -121,6 +123,79 @@ public class Crapgent extends AgentImpl {
 	public void auctionClosed(int auction) {
 		// TODO Auto-generated method stub
 
+	}
+	
+	public void calculateMaxPrice(Client c,int category, int type, int day ){
+		int budget = 1000;
+		int auction;
+		//TODO: call the flights before the hotels so the budget is normalized
+		switch (category){
+			case TACAgent.CAT_HOTEL: 
+				String ctd_in_flight = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualArrival();
+				String ctd_out_flight = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualDeparture();
+				for(int i=c.getActualArrival(); i <= c.getActualDeparture(); i++ ){
+					auction = agent.getAuctionFor(category, type, i);
+					if (type == TACAgent.TYPE_GOOD_HOTEL){
+						String ctd_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_GOOD_HOTEL+"-"+i;
+						//subtract flight  ... getBudget("1-1-i")
+						budget -= c.getBuget(ctd_in_flight);
+						budget -= c.getBuget(ctd_out_flight);
+						budget += c.getHotelBonus();
+						budget /= (c.getActualDeparture()-c.getActualArrival());
+						if(budget > prices[auction])c.addToBudget(ctd_hotel, budget);
+						//TODO: flag for bid
+					}
+					else{
+						String ctd = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_CHEAP_HOTEL+"-"+i;
+						budget -= c.getBuget(ctd_in_flight);
+						budget -= c.getBuget(ctd_out_flight);
+						budget /= (c.getActualDeparture()-c.getActualArrival());
+						if(budget > prices[auction])c.addToBudget(ctd, budget);
+						//TODO: flag for bid
+					}
+				}
+			case TACAgent.CAT_FLIGHT:
+				if (type == TACAgent.TYPE_INFLIGHT){
+					String ctd = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualArrival();
+					auction=agent.getAuctionFor(category, type, c.getActualArrival());
+					budget -= prices[auction];
+					if(budget > prices[auction])c.addToBudget(ctd,budget);
+				}
+				else{
+					String ctd = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_OUTFLIGHT+"-"+c.getActualDeparture();
+					auction=agent.getAuctionFor(category, type, c.getActualDeparture());
+					budget -= prices[auction];
+					if(budget > prices[auction])c.addToBudget(ctd,budget);
+				}
+			case TACAgent.CAT_ENTERTAINMENT:
+				for(int i=c.getActualArrival(); i <= c.getActualDeparture(); i++ ){
+					String ctd_good_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_GOOD_HOTEL+"-"+i;
+					String ctd_cheap_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_CHEAP_HOTEL+"-"+i;
+					auction=agent.getAuctionFor(category, type, i);
+					if (type == TACAgent.TYPE_ALLIGATOR_WRESTLING){
+						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_ALLIGATOR_WRESTLING+"-"+i;
+						budget += c.getE1Bonus();
+						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
+						else budget -=c.getBuget(ctd_cheap_hotel);
+						if(budget > prices[auction])c.addToBudget(ctd,budget);
+					}
+					else if(type == TACAgent.TYPE_AMUSEMENT){
+						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_AMUSEMENT+"-"+i;
+						budget += c.getE2Bonus();
+						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
+						else budget -=c.getBuget(ctd_cheap_hotel);
+						if(budget > prices[auction])c.addToBudget(ctd,budget);
+					}
+					else{
+						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_MUSEUM+"-"+i;
+						budget += c.getE3Bonus();
+						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
+						else budget -=c.getBuget(ctd_cheap_hotel);
+						if(budget > prices[auction])c.addToBudget(ctd,budget);
+					}
+				}
+			default: break;
+		}
 	}
 	
 	
