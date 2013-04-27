@@ -1,16 +1,16 @@
 /**
- * 
+ *
  */
 package com.teamtaco;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import se.sics.tac.aw.TACAgent;
+
 import com.teamtaco.exceptions.HotelTypeChangeException;
 import com.teamtaco.exceptions.InfeasiblePackageException;
-
-import se.sics.tac.aw.Quote;
-import se.sics.tac.aw.TACAgent;
+import com.teamtaco.util.HotelTypes;
 
 
 /**
@@ -18,25 +18,27 @@ import se.sics.tac.aw.TACAgent;
  *
  */
 public class Client implements Comparable<Client>{
-	
+
 	public static final int RANDOM_HOTEL_TYPE = 1337;
-	
+
 	private int id;
 	private int arrivalDay;
 	private int departureDay;
 	private int hotelBonus;
-	
+
 	private int e1Bonus = 0;
 	private int e2Bonus = 0;
 	private int e3Bonus = 0;
-	
+
 	private List<Item> satisfiedItems = new ArrayList<Item>();
-	
-	
+
+	private List<>
+
+
 	public Client (int id){
 		this.setId(id);
 	}
-	
+
 	public Client(int id, int arrivalDay, int departureDay, int hotelBonus, int e1Bonus, int e2Bonus, int e3Bonus){
 		this.setId(id);
 		this.arrivalDay = arrivalDay;
@@ -46,25 +48,26 @@ public class Client implements Comparable<Client>{
 		this.e2Bonus = e2Bonus;
 		this.e3Bonus = e3Bonus;
 	}
-	
+
 	/**
 	 * Gives a list of which items still need to be bought
-	 * 
+	 *
 	 * @return list of items that still need to be bought
-	 * @throws InfeasiblePackageException indicates that with the current satisfied items, 
+	 * @throws InfeasiblePackageException indicates that with the current satisfied items,
 	 * there is no chance to actually make this packet feasible. It is assumed, that
 	 * the auctions for hotels follow the pattern "auction for day x ends before auction for day x+1"
 	 * @throws HotelTypeChangeException if there are already hotels booked but those hotels are of different types
 	 */
 	public List<Item> whatToBuyNext() throws InfeasiblePackageException, HotelTypeChangeException{
 		List<Item> items = new ArrayList<Item>();
-		
+
 		// look up what's already there
-		Item inFlight = null;
-		Item outFlight = null;
+		FlightItem inFlight = null;
+		FlightItem outFlight = null;
 		int firstHotelDay = 999;
 		boolean[] hotels = new boolean[10];
-		int actualHotelType = RANDOM_HOTEL_TYPE;
+		HotelTypes actualHotelType = null;
+		//int actualHotelType = RANDOM_HOTEL_TYPE;
 		for(Item item : satisfiedItems){
 			if(item.getType() == TACAgent.TYPE_INFLIGHT){
 				inFlight = item;
@@ -76,14 +79,14 @@ public class Client implements Comparable<Client>{
 					firstHotelDay = item.getDay();
 				}
 				hotels[item.getDay()] = true;
-				if(actualHotelType != RANDOM_HOTEL_TYPE && actualHotelType != item.getType()){
+				if(actualHotelType != null && actualHotelType != item.getType()){
 					throw new HotelTypeChangeException(this);
 				} else {
 					actualHotelType = item.getType();
 				}
 			}
 		}
-		
+
 		// check for infeasible package
 		if(inFlight != null){
 			if(firstHotelDay != 999 && inFlight.getDay()<firstHotelDay){
@@ -101,28 +104,28 @@ public class Client implements Comparable<Client>{
 		} else {
 			startDate = getArrivalDay();
 		}
-		
+
 		int endDate;
 		if(outFlight != null){
 			endDate = outFlight.getDay();
 		} else {
 			endDate = getDepartureDay();
 		}
-		
+
 		// do not allocate hotel for the last day!
 		for(int i = startDate; i < endDate;i++ ){
 			if(!hotels[i]){
-				// TODO get max price here 
+				// TODO get max price here
 				int maxPrice = 0;
 				items.add(new Item(actualHotelType, i, maxPrice, 0));
 			}
 		}
-		
+
 		// buy hotels first!
 		if(items.size()>0){
 			return items;
 		}
-		
+
 		// find out dates by hotel-bookings (which should be done at this point!)
 		boolean arrived = false;
 		for(int i = 0; i< hotels.length;i++){
@@ -136,7 +139,7 @@ public class Client implements Comparable<Client>{
 				break;
 			}
 		}
-		
+
 		// create matrix for satisfied events
 		boolean[] events = new boolean[3];
 		for(Item item : satisfiedItems){
@@ -171,23 +174,23 @@ public class Client implements Comparable<Client>{
 		}
 		return items;
 	}
-	
+
 	/**
 	 * marks an item was satisfied (auction won)
-	 * 
+	 *
 	 * @param item the item
 	 */
-	public void satisfy(Item item){
+	public void bookItem(Item item){
 		satisfiedItems.add(item);
 	}
-	
+
 	/**
 	 * looks up if field field is already satisfied.
 	 * Fields that are not necessary (events) and do not have a bonus are always satisfied.
 	 * Such fields would have a negative influence on the utility as soon as the price is > 0.
-	 * 
+	 *
 	 * @deprecated method whatToBuyNext contains everything you need
-	 * 
+	 *
 	 * @param field the field
 	 * @return true if the field field is satisfied or unnecessary, false otherwise
 	 */
@@ -204,18 +207,18 @@ public class Client implements Comparable<Client>{
 			return false;
 		}
 	}
-	
+
 	/**
 	 * looks up the price for field field
-	 * 
+	 *
 	 * should not be used
-	 * 
+	 *
 	 * @param field the field
 	 * @return the price for field field if field was already allocated, -1 otherwise
 	 */
 	@Deprecated
 	public int priceFor(int field){
-		
+
 		for(Item item : satisfiedItems){
 			if(item.getType() == field){
 				return item.getActualPrice();
@@ -223,16 +226,16 @@ public class Client implements Comparable<Client>{
 		}
 		return -1;
 	}
-	
+
 	/**
 	 * Calculates the current utility
-	 * 
+	 *
 	 * @return the current utility
 	 */
 	public int getCurrentUtility(){
 		if(isFeasible()){
 			int utility = 1000;
-			
+
 			// TODO consider penalties using getActualArrival and getActualDeparture and so on
 			boolean goodHotel = false;
 			for(Item item:satisfiedItems){
@@ -249,7 +252,7 @@ public class Client implements Comparable<Client>{
 		}
 		return 0;
 	}
-	
+
 	public boolean isFeasible(){
 		int actualArrival = -1;
 		int actualDeparture =-1;
@@ -269,7 +272,7 @@ public class Client implements Comparable<Client>{
 				hotels[item.getDay()] = true;
 			}
 		}
-		
+
 		if(actualArrival >=0 && actualDeparture >=0 && (hotelType == TACAgent.TYPE_CHEAP_HOTEL || hotelType == TACAgent.TYPE_GOOD_HOTEL)){
 			for(int i = actualArrival; i< actualDeparture;i++){
 				if(!hotels[i]){
@@ -281,10 +284,10 @@ public class Client implements Comparable<Client>{
 			return false;
 		}
 	}
-	
+
 	/**
 	 * looks up the bonus for field field
-	 * 
+	 *
 	 * @param field the field
 	 * @return the utility for field field
 	 */
@@ -306,7 +309,7 @@ public class Client implements Comparable<Client>{
 		}
 		return getArrivalDay();
 	}
-	
+
 	public int getActualDeparture(){
 		for(Item item : satisfiedItems){
 			if(item.getType() == TACAgent.TYPE_OUTFLIGHT){
@@ -315,7 +318,7 @@ public class Client implements Comparable<Client>{
 		}
 		return getDepartureDay();
 	}
-	
+
 	public int getArrivalDay() {
 		return arrivalDay;
 	}
@@ -371,31 +374,31 @@ public class Client implements Comparable<Client>{
 	public void setId(int id) {
 		this.id = id;
 	}
-	
-	
+
+
 	/**
-	 * add the method compareTo in order to have a set order by 
+	 * add the method compareTo in order to have a set order by
 	 * for the moment by hotel desc
 	 */
 	@Override
 	public int compareTo(Client c){
 		return c.getHotelBonus() - hotelBonus;
 	}
-	
+
 	@Override
 	public String toString(){
-		String print = this.getId() + " " + this.getE1Bonus() + " " + this.getE2Bonus() + " " + this.getE3Bonus() + " " 
-				+ this.getArrivalDay() + " " + this.getDepartureDay() + " " + this.getHotelBonus() + 
+		String print = this.getId() + " " + this.getE1Bonus() + " " + this.getE2Bonus() + " " + this.getE3Bonus() + " "
+				+ this.getArrivalDay() + " " + this.getDepartureDay() + " " + this.getHotelBonus() +
 				" sorted by : " + this.getHotelBonus();
-		
-		return print;	
+
+		return print;
 	}
-	
+
 	public int calculateMaxPrice(int type){
 		int budget = 1000;
 		switch (type){
 			//TODO: potential optimization
-			case TACAgent.TYPE_CHEAP_HOTEL: 
+			case TACAgent.TYPE_CHEAP_HOTEL:
 				budget -= 600;
 				budget /= (getActualDeparture()-getActualArrival());
 				return budget;

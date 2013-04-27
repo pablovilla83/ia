@@ -21,7 +21,6 @@ public class Crapgent extends AgentImpl {
 	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
-	Price prices= new Price(28);
 	
 	/*
 	 * (non-Javadoc)
@@ -42,7 +41,6 @@ public class Crapgent extends AgentImpl {
 	public void quoteUpdated(Quote quote) {
 		// here comes update of bids
 		int auction = quote.getAuction();
-		prices.setPrice(auction, (int) quote.getAskPrice());
 	}
 
 	@Override
