@@ -4,9 +4,9 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+
+import com.teamtaco.exceptions.InfeasiblePackageException;
 
 import se.sics.tac.aw.TACAgent;
 
@@ -16,6 +16,8 @@ import se.sics.tac.aw.TACAgent;
  *
  */
 public class Client implements Comparable<Client>{
+	
+	public static final int RANDOM_HOTEL_TYPE = 1337;
 	
 	private int id;
 	private int arrivalDay;
@@ -42,10 +44,122 @@ public class Client implements Comparable<Client>{
 		this.e3Bonus = e3Bonus;
 	}
 	
-	public List<Item> whatToBuyNext(){
+	/**
+	 * Gives a list of which items still need to be bought
+	 * 
+	 * @return list of items that still need to be bought
+	 * @throws InfeasiblePackageException indicates that with the current satisfied items, 
+	 * there is no chance to actually make this packet feasible. It is assumed, that
+	 * the auctions for hotels follow the pattern "auction for day x ends before auction for day x+1"
+	 */
+	public List<Item> whatToBuyNext() throws InfeasiblePackageException{
 		List<Item> items = new ArrayList<Item>();
-		// check for hotel (day 1, 2, 3) if X already satisfied only show x and following days
-		// actual flight dates
+		
+		// look up what's already there
+		Item inFlight = null;
+		Item outFlight = null;
+		int firstHotelDay = 999;
+		boolean[] hotels = new boolean[10];
+		int actualHotelType = RANDOM_HOTEL_TYPE;
+		for(Item item : satisfiedItems){
+			if(item.getType() == TACAgent.TYPE_INFLIGHT){
+				inFlight = item;
+			} else if (item.getType() == TACAgent.TYPE_OUTFLIGHT){
+				outFlight = item;
+			}
+			if(item.getType() == TACAgent.TYPE_CHEAP_HOTEL || item.getType() == TACAgent.TYPE_GOOD_HOTEL){
+				if(item.getDay() < firstHotelDay){
+					firstHotelDay = item.getDay();
+				}
+				hotels[item.getDay()] = true;
+				if(actualHotelType != RANDOM_HOTEL_TYPE && actualHotelType != item.getType()){
+					// throw exception
+				} else {
+					actualHotelType = item.getType();
+				}
+			}
+		}
+		
+		// check for infeasible package
+		if(inFlight != null){
+			if(firstHotelDay != 999 && inFlight.getDay()<firstHotelDay){
+				throw new InfeasiblePackageException("Impossible to create a feasible package for this client", this);
+			}
+		}
+
+
+		// calculate the days on which the client will actually stay / can actually stay
+		int startDate;
+		if(firstHotelDay!= 999){
+			startDate = firstHotelDay;
+		} else if(inFlight != null){
+			startDate = inFlight.getDay();
+		} else {
+			startDate = getArrivalDay();
+		}
+		
+		int endDate;
+		if(outFlight != null){
+			endDate = outFlight.getDay();
+		} else {
+			endDate = getDepartureDay();
+		}
+		
+		// do not allocate hotel for the last day!
+		for(int i = startDate; i < endDate;i++ ){
+			if(!hotels[i]){
+				// TODO get max price here 
+				int maxPrice = 0;
+				items.add(new Item(actualHotelType, i, maxPrice, 0));
+			}
+		}
+		
+		// buy hotels first!
+		if(items.size()>0){
+			return items;
+		}
+		
+		boolean arrived = false;
+		for(int i = 0; i< hotels.length;i++){
+			if(hotels[i] && !arrived){
+				startDate = i;
+				arrived = true;
+			}
+			if(!hotels[i] && arrived){
+				endDate = i;
+				arrived = false;
+				break;
+			}
+		}
+		
+		boolean[] events = new boolean[3];
+		for(Item item : satisfiedItems){
+			switch(item.getType()){
+			case TACAgent.E1: events[0] = true;break;
+			case TACAgent.E2: events[1] = true;break;
+			case TACAgent.E3: events[2] = true;break;
+			default: break;
+			}
+		}
+
+		if(inFlight == null){
+			// TODO get maxPrice via method
+			int maxPrice = 0;
+			items.add(new Item(TACAgent.TYPE_INFLIGHT, startDate, maxPrice, 0));
+		}
+		if (outFlight == null){
+			// TODO get from method
+			int maxPrice = 0;
+			items.add(new Item(TACAgent.TYPE_OUTFLIGHT, endDate, maxPrice, 0));
+		}
+		for(int i = 0;i<events.length;i++){
+			if(!events[i]){
+				int type = i == 0? TACAgent.E1: i == 1? TACAgent.E2:TACAgent.E3;
+				// TODO get maxPrice from function
+				int maxPrice = 0;
+				items.add(new Item(type, 0, maxPrice, 0));
+			}
+		}
 		return items;
 	}
 	
@@ -130,7 +244,7 @@ public class Client implements Comparable<Client>{
 	public boolean isFeasible(){
 		int actualArrival = -1;
 		int actualDeparture =-1;
-		int hotelType = -1;
+		int hotelType = RANDOM_HOTEL_TYPE;
 		boolean[] hotels = new boolean[8];
 		for(Item item : satisfiedItems){
 			if(item.getType() == TACAgent.TYPE_INFLIGHT){
@@ -138,6 +252,10 @@ public class Client implements Comparable<Client>{
 			} else if (item.getType() == TACAgent.TYPE_OUTFLIGHT) {
 				actualDeparture = item.getDay();
 			} else if (item.getType() == TACAgent.TYPE_CHEAP_HOTEL || item.getType() == TACAgent.TYPE_GOOD_HOTEL){
+				// different hotel-types are infeasible
+				if(hotelType != RANDOM_HOTEL_TYPE && item.getType() != RANDOM_HOTEL_TYPE){
+					return false;
+				}
 				hotelType = item.getType();
 				hotels[item.getDay()] = true;
 			}
