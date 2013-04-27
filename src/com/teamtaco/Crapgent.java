@@ -153,7 +153,7 @@ public class Crapgent extends AgentImpl {
 		}
 		else{
 			FlightItem flight = (FlightItem) item;
-			if(flight.getType() == FlightType.IN){
+/*			if(flight.getType() == FlightType.IN){
 				//If we are buying a Flight it means that we have bought the Hotel so we get the last quote = closing price
 				//We will break it up in days to calculate penalties
 				if(flight.getDay()==c.getActualArrivalDay()){
@@ -172,6 +172,27 @@ public class Crapgent extends AgentImpl {
 			}
 			//TODO:
 			else{return budget;}
+*/
+			
+			if(flight.getType() == FlightType.IN){
+				auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
+				budget -= prices[auction];
+				if(flight.getDay() != c.getActualArrivalDay()) {
+					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualArrivalDay()));
+					budget -= travelPenalty;
+				}
+				return budget;
+			}
+			
+			else {
+				auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, flight.getDay());
+				budget -= prices[auction];
+				if (flight.getDay() != c.getActualDepartureDay()){
+					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualDepartureDay()));
+					budget -= travelPenalty;
+				}
+				return budget;
+			}
 		}
 	}
 }
