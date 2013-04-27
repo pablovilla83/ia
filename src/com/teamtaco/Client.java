@@ -405,6 +405,21 @@ public class Client implements Comparable<Client>{
 				budget += getHotelBonus();
 				budget /= (getActualDeparture()-getActualArrival());
 				return budget;
+			case TACAgent.E1:
+				//TODO: Logic here
+				return budget;
+			case TACAgent.E2:
+				//TODO: Logic here
+				return budget;
+			case TACAgent.E3:
+				//TODO: Logic here
+				return budget;
+			/*case TACAgent.TYPE_INFLIGHT:
+				//TODO: Logic here
+				return budget;
+			case TACAgent.TYPE_OUTFLIGHT:
+				//TODO Logic here
+				return budget;*/
 			default: return 0;
 		}
 	}
