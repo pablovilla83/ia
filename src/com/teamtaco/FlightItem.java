@@ -33,10 +33,9 @@ public class FlightItem extends Item {
 		if(!(obj instanceof FlightItem)) {
 			return false;
 		}
-		if(this.getType() == ((FlightItem)obj).getType()) {
+		if(this.getType() == ((FlightItem)obj).getType() && this.getDay() == ((FlightItem)obj).getDay()) {
 			return true;
 		}
 		return false;
 	}
-
 }

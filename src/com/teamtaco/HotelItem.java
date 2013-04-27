@@ -11,6 +11,16 @@ import com.teamtaco.util.HotelTypes;
  */
 public class HotelItem extends Item {
 	private HotelTypes type = null;
+	
+	public HotelItem() {
+		
+	}
+	
+	public HotelItem(int day, HotelTypes type) {
+		this.day = day;
+		this.type = type;
+	}
+	
 	public HotelTypes getType() {
 		return type;
 	}
@@ -38,5 +48,15 @@ public class HotelItem extends Item {
 		}
 		return false;
 	}
-
+	
+	public int hashCode() {
+		int code = 0;
+		code+= (day<<4);
+		if(type != null) {
+			code+=type.ordinal();
+		} else {
+			code*=-1;
+		}
+		return code;
+	}
 }
