@@ -2,10 +2,14 @@ package com.teamtaco;
 
 public abstract class Item {
 	private int maxPrice;
-	private int actualPrice;
+	private int actualPrice = -1;
 
 	public Item(){
 
+	}
+
+	public boolean isSatisfied(){
+		return actualPrice != -1;
 	}
 
 	public Item(int maxPrice, int actualPrice){
@@ -27,4 +31,8 @@ public abstract class Item {
 	public void setActualPrice(int actualPrice) {
 		this.actualPrice = actualPrice;
 	}
+	
+	public abstract boolean isMandatory();
+	
+	public abstract boolean equals(Object obj);
 }

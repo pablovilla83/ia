@@ -24,5 +24,19 @@ public class HotelItem extends Item {
 		this.day = day;
 	}
 	private int day;
+	@Override
+	public boolean isMandatory() {
+		return true;
+	}
+	@Override
+	public boolean equals(Object obj) {
+		if(!(obj instanceof HotelItem)) {
+			return false;
+		}
+		if(this.getType() == ((HotelItem)obj).getType() && this.getDay() == ((HotelItem)obj).getDay()) {
+			return true;
+		}
+		return false;
+	}
 
 }

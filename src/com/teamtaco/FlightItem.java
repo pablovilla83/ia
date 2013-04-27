@@ -24,5 +24,19 @@ public class FlightItem extends Item {
 	public void setDay(int day) {
 		this.day = day;
 	}
+	@Override
+	public boolean isMandatory() {
+		return true;
+	}
+	@Override
+	public boolean equals(Object obj) {
+		if(!(obj instanceof FlightItem)) {
+			return false;
+		}
+		if(this.getType() == ((FlightItem)obj).getType()) {
+			return true;
+		}
+		return false;
+	}
 
 }
