@@ -6,6 +6,10 @@ package com.teamtaco;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import com.teamtaco.util.EventType;
+import com.teamtaco.util.FlightType;
+import com.teamtaco.util.HotelTypes;
+
 import se.sics.tac.aw.AgentImpl;
 import se.sics.tac.aw.Bid;
 import se.sics.tac.aw.Quote;
@@ -125,85 +129,49 @@ public class Crapgent extends AgentImpl {
 
 	}
 	
-	public void calculateMaxPrice(Client c,int category, int type, int day ){
-		int budget = 1000;
+	public float calculateMaxPrice(Client c, Item item){
+		float budget = 1000;
 		int auction;
-		//TODO: call the flights before the hotels so the budget is normalized
-		String ctd_in_flight = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualArrivalDay();
-		String ctd_out_flight = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualDepartureDay();
-		switch (category){
-			case TACAgent.CAT_HOTEL: 
-				for(int i=c.getActualArrivalDay(); i <= c.getActualDepartureDay(); i++ ){
-					auction = TACAgent.getAuctionFor(category, type, i);
-					if (type == TACAgent.TYPE_GOOD_HOTEL){
-						String ctd_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_GOOD_HOTEL+"-"+i;
-						//subtract flight  ... getBudget("1-1-i")
-						budget -= c.getBuget(ctd_in_flight);
-						budget -= c.getBuget(ctd_out_flight);
-						budget += c.getHotelBonus();
-						budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
-						if(budget > prices[auction])c.addToBudget(ctd_hotel, budget);
-						//TODO: flag for bid
-					}
-					else{
-						String ctd = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_CHEAP_HOTEL+"-"+i;
-						budget -= c.getBuget(ctd_in_flight);
-						budget -= c.getBuget(ctd_out_flight);
-						budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
-						if(budget > prices[auction])c.addToBudget(ctd, budget);
-						//TODO: flag for bid
-					}
-				}
-			case TACAgent.CAT_FLIGHT:
-				if (type == TACAgent.TYPE_INFLIGHT){
-					String ctd = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_INFLIGHT+"-"+c.getActualArrivalDay();
-					auction=TACAgent.getAuctionFor(category, type, c.getActualArrivalDay());
+		if (item instanceof HotelItem){
+			HotelItem hotel = (HotelItem) item;
+			if(hotel.getType() == HotelTypes.GOOD){
+				budget -= 600;
+				budget += c.getHotelBonus();
+				budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
+				return budget;
+			}else{
+				budget -= 600;
+				budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
+				return budget;
+			}
+		}
+		else if(item instanceof EventItem){
+			EventItem event = (EventItem) item;
+			if(event.getType() == EventType.Event1){budget += c.getE1Bonus();return budget;}
+			else if(event.getType() == EventType.Event2){budget += c.getE2Bonus();return budget;}
+			else{budget += c.getE3Bonus();return budget;}
+		}
+		else{
+			FlightItem flight = (FlightItem) item;
+			if(flight.getType() == FlightType.IN){
+				//If we are buying a Flight it means that we have bought the Hotel so we get the last quote = closing price
+				//We will break it up in days to calculate penalties
+				if(flight.getDay()==c.getActualArrivalDay()){
+					auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
 					budget -= prices[auction];
-					if(budget > prices[auction])c.addToBudget(ctd,budget);
+					return budget;
 				}
-				else{
-					String ctd = TACAgent.CAT_FLIGHT+"-"+ TACAgent.TYPE_OUTFLIGHT+"-"+c.getActualDepartureDay();
-					auction=TACAgent.getAuctionFor(category, type, c.getActualDepartureDay());
+				//If we are referencing one of the days in the middle
+				else if (flight.getDay()>c.getActualArrivalDay() && flight.getDay()<c.getActualDepartureDay()){
+					auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
 					budget -= prices[auction];
-					if(budget > prices[auction])c.addToBudget(ctd,budget);
+					return budget;
 				}
-			case TACAgent.CAT_ENTERTAINMENT:
-				for(int i=c.getActualArrivalDay(); i <= c.getActualDepartureDay(); i++ ){
-					String ctd_good_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_GOOD_HOTEL+"-"+i;
-					String ctd_cheap_hotel = TACAgent.CAT_HOTEL+"-"+ TACAgent.TYPE_CHEAP_HOTEL+"-"+i;
-					auction=TACAgent.getAuctionFor(category, type, i);
-					if (type == TACAgent.TYPE_ALLIGATOR_WRESTLING){
-						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_ALLIGATOR_WRESTLING+"-"+i;
-						budget += c.getE1Bonus();
-						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
-						else budget -=c.getBuget(ctd_cheap_hotel);
-						budget -= c.getBuget(ctd_in_flight);
-						budget -= c.getBuget(ctd_out_flight);
-						if(budget > prices[auction])c.addToBudget(ctd,budget);
-					}
-					else if(type == TACAgent.TYPE_AMUSEMENT){
-						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_AMUSEMENT+"-"+i;
-						budget += c.getE2Bonus();
-						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
-						else budget -=c.getBuget(ctd_cheap_hotel);
-						budget -= c.getBuget(ctd_in_flight);
-						budget -= c.getBuget(ctd_out_flight);
-						if(budget > prices[auction])c.addToBudget(ctd,budget);
-					}
-					else{
-						String ctd = TACAgent.CAT_ENTERTAINMENT+"-"+ TACAgent.TYPE_MUSEUM+"-"+i;
-						budget += c.getE3Bonus();
-						if(c.getBuget(ctd_good_hotel)>0){budget -= c.getBuget(ctd_cheap_hotel);}
-						else budget -=c.getBuget(ctd_cheap_hotel);
-						budget -= c.getBuget(ctd_in_flight);
-						budget -= c.getBuget(ctd_out_flight);
-						if(budget > prices[auction])c.addToBudget(ctd,budget);
-					}
-				}
-			default: break;
+				//TODO:
+				else{return budget;}
+			}
+			//TODO:
+			else{return budget;}
 		}
 	}
-	
-	
-
 }
