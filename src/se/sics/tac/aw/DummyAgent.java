@@ -130,7 +130,7 @@ import se.sics.tac.util.ArgEnumerator;
 import java.util.logging.*;
 
 public class DummyAgent extends AgentImpl {
-
+	int[][] preferences = new int [6][8]; 
   private static final Logger log =
     Logger.getLogger(DummyAgent.class.getName());
 
@@ -264,6 +264,19 @@ public class DummyAgent extends AgentImpl {
       int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);
       int hotel = agent.getClientPreference(i, TACAgent.HOTEL_VALUE);
       int type;
+      System.out.print("Preference of " + i + " ");
+      for (int j=0; j<6; j++){
+    	  switch (j){ 
+    	  case 0: preferences[j][i] = agent.getClientPreference(i, TACAgent.HOTEL_VALUE); break;
+    	  case 1: preferences[j][i] = agent.getClientPreference(i, TACAgent.ARRIVAL);break;
+    	  case 2: preferences[j][i] = agent.getClientPreference(i, TACAgent.DEPARTURE);break;
+    	  case 3: preferences[j][i] = agent.getClientPreference(i, TACAgent.E1);break;
+    	  case 4: preferences[j][i] = agent.getClientPreference(i, TACAgent.E2);break;
+    	  case 5: preferences[j][i] = agent.getClientPreference(i, TACAgent.E3);break;
+    	  }
+      System.out.print(preferences[j][i]+ " ");
+      }
+      System.out.println();
 
       // Get the flight preferences auction and remember that we are
       // going to buy tickets for these days. (inflight=1, outflight=0)

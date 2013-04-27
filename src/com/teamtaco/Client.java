@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import se.sics.tac.aw.Quote;
 import se.sics.tac.aw.TACAgent;
 
 
@@ -27,6 +28,7 @@ public class Client implements Comparable<Client>{
 	private int e3Bonus = 0;
 	
 	private List<Item> satisfiedItems = new ArrayList<Item>();
+	
 	
 	public Client (int id){
 		this.setId(id);
@@ -177,7 +179,7 @@ public class Client implements Comparable<Client>{
 				return item.getDay();
 			}
 		}
-		return -1;
+		return getArrivalDay();
 	}
 	
 	public int getActualDeparture(){
@@ -186,7 +188,7 @@ public class Client implements Comparable<Client>{
 				return item.getDay();
 			}
 		}
-		return -1;
+		return getDepartureDay();
 	}
 	
 	public int getArrivalDay() {
@@ -262,6 +264,24 @@ public class Client implements Comparable<Client>{
 				" sorted by : " + this.getHotelBonus();
 		
 		return print;	
+	}
+	
+	public int calculateMaxPrice(int type){
+		int budget = 1000;
+		switch (type){
+			//TODO: potential optimization
+			case TACAgent.TYPE_CHEAP_HOTEL: 
+				budget -= 600;
+				budget /= (getActualDeparture()-getActualArrival());
+				return budget;
+				//TODO: potential optimization
+			case TACAgent.TYPE_GOOD_HOTEL:
+				budget -= 600;
+				budget += getHotelBonus();
+				budget /= (getActualDeparture()-getActualArrival());
+				return budget;
+			default: return 0;
+		}
 	}
 
 }
