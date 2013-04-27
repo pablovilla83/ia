@@ -6,6 +6,7 @@ package com.teamtaco;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.teamtaco.exceptions.HotelTypeChangeException;
 import com.teamtaco.exceptions.InfeasiblePackageException;
 
 import se.sics.tac.aw.TACAgent;
@@ -51,8 +52,9 @@ public class Client implements Comparable<Client>{
 	 * @throws InfeasiblePackageException indicates that with the current satisfied items, 
 	 * there is no chance to actually make this packet feasible. It is assumed, that
 	 * the auctions for hotels follow the pattern "auction for day x ends before auction for day x+1"
+	 * @throws HotelTypeChangeException if there are already hotels booked but those hotels are of different types
 	 */
-	public List<Item> whatToBuyNext() throws InfeasiblePackageException{
+	public List<Item> whatToBuyNext() throws InfeasiblePackageException, HotelTypeChangeException{
 		List<Item> items = new ArrayList<Item>();
 		
 		// look up what's already there
@@ -73,7 +75,7 @@ public class Client implements Comparable<Client>{
 				}
 				hotels[item.getDay()] = true;
 				if(actualHotelType != RANDOM_HOTEL_TYPE && actualHotelType != item.getType()){
-					// throw exception
+					throw new HotelTypeChangeException(this);
 				} else {
 					actualHotelType = item.getType();
 				}
@@ -119,6 +121,7 @@ public class Client implements Comparable<Client>{
 			return items;
 		}
 		
+		// find out dates by hotel-bookings (which should be done at this point!)
 		boolean arrived = false;
 		for(int i = 0; i< hotels.length;i++){
 			if(hotels[i] && !arrived){
@@ -132,6 +135,7 @@ public class Client implements Comparable<Client>{
 			}
 		}
 		
+		// create matrix for satisfied events
 		boolean[] events = new boolean[3];
 		for(Item item : satisfiedItems){
 			switch(item.getType()){
@@ -142,16 +146,19 @@ public class Client implements Comparable<Client>{
 			}
 		}
 
+		// check if inFlight already exists
 		if(inFlight == null){
 			// TODO get maxPrice via method
 			int maxPrice = 0;
 			items.add(new Item(TACAgent.TYPE_INFLIGHT, startDate, maxPrice, 0));
 		}
+		// check if outFlight already exists
 		if (outFlight == null){
 			// TODO get from method
 			int maxPrice = 0;
 			items.add(new Item(TACAgent.TYPE_OUTFLIGHT, endDate, maxPrice, 0));
 		}
+		// add missing events
 		for(int i = 0;i<events.length;i++){
 			if(!events[i]){
 				int type = i == 0? TACAgent.E1: i == 1? TACAgent.E2:TACAgent.E3;
