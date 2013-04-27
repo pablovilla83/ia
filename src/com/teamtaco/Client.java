@@ -6,9 +6,8 @@ package com.teamtaco;
 import java.util.ArrayList;
 import java.util.List;
 
-import se.sics.tac.aw.TACAgent;
-
-import com.teamtaco.exceptions.HotelTypeChangeException;
+import java.util.Map;
+import java.util.HashMap;import se.sics.tac.aw.TACAgent;import com.teamtaco.exceptions.HotelTypeChangeException;
 import com.teamtaco.exceptions.InfeasiblePackageException;
 import com.teamtaco.util.HotelTypes;
 
@@ -30,9 +29,31 @@ public class Client implements Comparable<Client>{
 	private int e2Bonus = 0;
 	private int e3Bonus = 0;
 
+	// Map<categoryTypeDay, price>
+	// categoryTypeDay = category-type-day
+	private Map<String, Float> budget = new HashMap<String, Float>();
+
+	public void addToBudget(String categoryTypeDay, float price){
+		if (this.budget.containsKey(categoryTypeDay)) {
+			price += this.budget.get(categoryTypeDay);
+		}
+
+		this.budget.put(categoryTypeDay, price);
+	}
+
+	/**
+	 * get the current bubget available
+	 * ctd = category-type-day
+	 * @return float
+	 */
+	public float getBuget(String ctd){
+		float value = this.budget.get(ctd);
+		return value;
+	}
+
+
 	private List<Item> satisfiedItems = new ArrayList<Item>();
 
-	private List<>
 
 
 	public Client (int id){
@@ -393,38 +414,12 @@ public class Client implements Comparable<Client>{
 
 		return print;
 	}
-
-	public int calculateMaxPrice(int type){
-		int budget = 1000;
-		switch (type){
-			//TODO: potential optimization
-			case TACAgent.TYPE_CHEAP_HOTEL:
-				budget -= 600;
-				budget /= (getActualDeparture()-getActualArrival());
-				return budget;
-				//TODO: potential optimization
-			case TACAgent.TYPE_GOOD_HOTEL:
-				budget -= 600;
-				budget += getHotelBonus();
-				budget /= (getActualDeparture()-getActualArrival());
-				return budget;
-			case TACAgent.E1:
-				//TODO: Logic here
-				return budget;
-			case TACAgent.E2:
-				//TODO: Logic here
-				return budget;
-			case TACAgent.E3:
-				//TODO: Logic here
-				return budget;
-			/*case TACAgent.TYPE_INFLIGHT:
-				//TODO: Logic here
-				return budget;
-			case TACAgent.TYPE_OUTFLIGHT:
-				//TODO Logic here
-				return budget;*/
-			default: return 0;
+	}<<<<<<< .mine
 		}
 	}
+=======
+
+
+>>>>>>> .theirs
 
 }
