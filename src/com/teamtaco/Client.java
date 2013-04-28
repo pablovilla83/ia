@@ -287,7 +287,7 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
-		System.out.println(createItemListString(unsatisfiedItems));
+		//System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
