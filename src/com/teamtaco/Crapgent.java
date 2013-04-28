@@ -9,17 +9,16 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
-import com.teamtaco.util.EventType;
-import com.teamtaco.util.FlightType;
-import com.teamtaco.util.HotelTypes;
-
 import se.sics.tac.aw.AgentImpl;
 import se.sics.tac.aw.Bid;
-import se.sics.tac.aw.DummyAgent;
 import se.sics.tac.aw.Quote;
 import se.sics.tac.aw.TACAgent;
 import se.sics.tac.aw.Transaction;
 import se.sics.tac.util.ArgEnumerator;
+
+import com.teamtaco.util.EventType;
+import com.teamtaco.util.FlightType;
+import com.teamtaco.util.HotelTypes;
 
 /**
  * @author Frederik
@@ -56,45 +55,76 @@ public class Crapgent extends AgentImpl {
 		for (Client client: clients){
 			List<Item> listItems = new ArrayList<Item>();
 			listItems = client.whatToBuyNext();
+			
 			int type;
-			float maxprice;
 			for(Item item : listItems){
+				item.setMaxPrice((int) calculateMaxPrice(client, item));
 				if(item instanceof FlightItem){
-					if(((FlightItem) item).getType()==FlightType.IN){type=TACAgent.TYPE_INFLIGHT;}else{type=TACAgent.TYPE_OUTFLIGHT;}
-					if(agent.getAuctionType(auction) == type && agent.getAuctionDay(auction) == ((FlightItem) item).getDay()){
-						System.out.println("I am checking the max price");
-						maxprice = calculateMaxPrice(client, item);
-						System.out.println(maxprice);
-						//if the MaxPrice is feasible continue to bid
-						if(maxprice >= prices[auction]){
-							int alloc = agent.getAllocation(auction);
-								if(agent.getOwn(auction)<alloc){
-								Bid bid = new Bid(auction);
-								bid.addBidPoint(1, maxprice);
-								log.finest("submitting bid with alloc=" + agent.getAllocation(auction) + " own=" + agent.getOwn(auction));
-								agent.submitBid(bid);
-								System.out.println("I bid " + bid.getBidString());
-								client.bookItem(item);
-								}
-						}
-					}
+					manageFlightBid(client, (FlightItem)item, auction);
 				}else if(item instanceof HotelItem){
-					if(((HotelItem) item).getType()==HotelTypes.GOOD){type=TACAgent.TYPE_GOOD_HOTEL;}else{type=TACAgent.TYPE_CHEAP_HOTEL;}
-					if(agent.getAuctionType(auction) == type && agent.getAuctionDay(auction) == ((HotelItem) item).getDay()){
-						maxprice = calculateMaxPrice(client, item);
-						//if the MaxPrice is feasible continue to bid
-					}
+					manageHotelBid(client, (HotelItem)item, auction);
 				}else{
-					if(((EventItem) item).getType()==EventType.Event1){type=TACAgent.E1;}
-					else if(((EventItem) item).getType()==EventType.Event2){type=TACAgent.E2;}
-					else{type=TACAgent.E3;}
-					//TODO: ask fred about getBookedDay
-					if(agent.getAuctionType(auction) == type && agent.getAuctionDay(auction) == ((EventItem) item).getBookedDay()){
-						maxprice = calculateMaxPrice(client, item);
-						//if the MaxPrice is feasible continue to 
-					}
+					manageEventBid(client, (EventItem)item, auction);
 				}
 			}
+		}
+	}
+	
+	private void manageHotelBid(Client client, HotelItem item, int auction) {
+		int type;
+		if (((HotelItem) item).getType() == HotelTypes.GOOD) {
+			type = TACAgent.TYPE_GOOD_HOTEL;
+		} else {
+			type = TACAgent.TYPE_CHEAP_HOTEL;
+		}
+		if (TACAgent.getAuctionType(auction) == type
+				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
+			// if the MaxPrice is feasible continue to bid
+		}
+	}
+	
+	private void manageFlightBid(Client client, FlightItem item, int auction) {
+		int type;
+		if (item.getType() == FlightType.IN) {
+			type = TACAgent.TYPE_INFLIGHT;
+		} else {
+			type = TACAgent.TYPE_OUTFLIGHT;
+		}
+		if (TACAgent.getAuctionType(auction) == type
+				&& TACAgent.getAuctionDay(auction) == ((FlightItem) item).getDay()) {
+			System.out.println("I am checking the max price");
+			System.out.println(item.getMaxPrice());
+			// if the MaxPrice is feasible continue to bid
+			if (item.getMaxPrice() >= prices[auction]) {
+				int alloc = agent.getAllocation(auction);
+				if (agent.getOwn(auction) < alloc) {
+					Bid bid = new Bid(auction);
+					bid.addBidPoint(1, item.getMaxPrice());
+					log.finest("submitting bid with alloc="
+							+ agent.getAllocation(auction) + " own="
+							+ agent.getOwn(auction));
+					agent.submitBid(bid);
+					System.out.println("I bid " + bid.getBidString());
+					client.bookItem(item);
+				}
+			}
+		}
+	}
+	
+	private void manageEventBid(Client client, EventItem item, int auction) {
+		int type;
+		if (((EventItem) item).getType() == EventType.Event1) {
+			type = TACAgent.E1;
+		} else if (((EventItem) item).getType() == EventType.Event2) {
+			type = TACAgent.E2;
+		} else {
+			type = TACAgent.E3;
+		}
+		// TODO: ask fred about getBookedDay
+		if (TACAgent.getAuctionType(auction) == type
+				&& TACAgent.getAuctionDay(auction) == ((EventItem) item)
+						.getBookedDay()) {
+			// if the MaxPrice is feasible continue to
 		}
 	}
 	
