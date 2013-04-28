@@ -275,6 +275,8 @@ public class Client implements Comparable<Client>{
 		
 		// make sure hotels are bought first - if there's still a hotel to be bough, buy this first!
 		// TODO probably already allow to buy inflight when hotel for first day is already booked?
+		
+		
 		// TODO allow to buy events for the days that are already booked?
 		if(unsatisfiedItems.isEmpty()) {
 			for(Item item : items) {
@@ -283,7 +285,7 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
-		System.out.println(createItemListString(unsatisfiedItems));
+		//System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
