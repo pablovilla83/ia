@@ -253,7 +253,7 @@ public class Client implements Comparable<Client>{
 	 * @return
 	 */
 	public List<Item> whatToBuyNext(){
-		updateItemList();
+		//updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
@@ -483,9 +483,7 @@ public class Client implements Comparable<Client>{
 
 	@Override
 	public String toString(){
-		String print = this.getId() + " " + this.getE1Bonus() + " " + this.getE2Bonus() + " " + this.getE3Bonus() + " "
-				+ this.getArrivalDay() + " " + this.getDepartureDay() + " " + this.getHotelBonus() +
-				" sorted by : " + this.getHotelBonus();
+		String print = "id: " + this.getId() + "; e1: " + this.getE1Bonus() + "; e2: " + this.getE2Bonus() + "; e3: " + this.getE3Bonus() + "; arrival: "+ this.getArrivalDay() + "; departure: " + this.getDepartureDay() + "; hotel: " + this.getHotelBonus();
 
 		return print;
 	}

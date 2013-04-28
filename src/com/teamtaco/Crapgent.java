@@ -52,18 +52,14 @@ public class Crapgent extends AgentImpl {
 		// here comes update of bids
 		int auction = quote.getAuction();
 		prices[auction] = quote.getAskPrice();
-		System.out.println("I am quoteUpdated");
 		//check if the quote that got updated is on the whatToBuyNext list...
 		for (Client client: clients){
 			List<Item> listItems = new ArrayList<Item>();
 			listItems = client.whatToBuyNext();
-			System.out.println(listItems.isEmpty());
 			int type;
 			float maxprice;
 			for(Item item : listItems){
-				System.out.println("I am an item inside the list");
 				if(item instanceof FlightItem){
-					System.out.println("I am Flight Item");
 					if(((FlightItem) item).getType()==FlightType.IN){type=TACAgent.TYPE_INFLIGHT;}else{type=TACAgent.TYPE_OUTFLIGHT;}
 					if(agent.getAuctionType(auction) == type && agent.getAuctionDay(auction) == ((FlightItem) item).getDay()){
 						System.out.println("I am checking the max price");
@@ -71,13 +67,15 @@ public class Crapgent extends AgentImpl {
 						System.out.println(maxprice);
 						//if the MaxPrice is feasible continue to bid
 						if(maxprice >= prices[auction]){
-							System.out.println("I am a feasible price");
 							int alloc = agent.getAllocation(auction);
+								if(agent.getOwn(auction)<alloc){
 								Bid bid = new Bid(auction);
-								bid.addBidPoint(alloc, maxprice);
+								bid.addBidPoint(1, maxprice);
 								log.finest("submitting bid with alloc=" + agent.getAllocation(auction) + " own=" + agent.getOwn(auction));
 								agent.submitBid(bid);
-								System.out.println("I bid");
+								System.out.println("I bid " + bid.getBidString());
+								client.bookItem(item);
+								}
 						}
 					}
 				}else if(item instanceof HotelItem){
@@ -99,7 +97,7 @@ public class Crapgent extends AgentImpl {
 			}
 		}
 	}
-
+	
 	@Override
 	public void quoteUpdated(int auctionCategory) {
 		//useless
@@ -150,6 +148,7 @@ public class Crapgent extends AgentImpl {
 		
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
+		calculateAllocation();
 		for(int i = 0;i<8;i++){
 			Client c = new Client(i);
 			c.setE1Bonus(agent.getClientPreference(i, TACAgent.E1));
@@ -159,11 +158,25 @@ public class Crapgent extends AgentImpl {
 			c.setDepartureDay(agent.getClientPreference(i, TACAgent.DEPARTURE));
 			c.setHotelBonus(agent.getClientPreference(i, TACAgent.HOTEL_VALUE));
 			c.initializeItemList();
+			System.out.println(c.toString());
 			clients.add(c);
 			//TODO: calculateMaxPrice(c);
 		}
+		
 	}
 
+	private void calculateAllocation() {
+	    for (int i = 0; i < 8; i++) {
+	      int inFlight = agent.getClientPreference(i, TACAgent.ARRIVAL);
+	      int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);   
+		  
+	      int auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
+		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+		  auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
+		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+	    
+	    }
+	}
 	/*
 	 * (non-Javadoc)
 	 * 
