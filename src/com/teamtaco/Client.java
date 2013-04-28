@@ -162,6 +162,8 @@ public class Client implements Comparable<Client>{
 				lastDay = i;
 			}
 		}
+		arrivalDay = firstDay;
+		departureDay = lastDay+1;
 		
 		// look up which days are still free for activities
 		boolean[] unoccupiedDays = new boolean[DAY_COUNT];
@@ -185,8 +187,8 @@ public class Client implements Comparable<Client>{
 			// update flight-days
 			if(!item.isSatisfied() && item instanceof FlightItem) {
 				switch(((FlightItem)item).getType()) {
-					case IN: ((FlightItem)item).setDay(firstDay);break;
-					case OUT: ((FlightItem)item).setDay(lastDay);break;
+					case IN: ((FlightItem)item).setDay(arrivalDay);break;
+					case OUT: ((FlightItem)item).setDay(departureDay);break;
 				}
 			}
 		}
@@ -285,7 +287,7 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
-		//System.out.println(createItemListString(unsatisfiedItems));
+		System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
