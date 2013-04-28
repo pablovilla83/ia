@@ -5,11 +5,15 @@ package com.teamtaco;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import se.sics.tac.aw.TACAgent;
 
+import com.teamtaco.util.EventType;
+import com.teamtaco.util.FlightType;
 import com.teamtaco.util.HotelTypes;
 
 
@@ -53,6 +57,7 @@ public class Client implements Comparable<Client>{
 
 
 	private List<Item> items = new ArrayList<Item>();
+	private Set<HotelItem> closedHotelAuctions = new HashSet<HotelItem>();
 
 
 
@@ -68,14 +73,46 @@ public class Client implements Comparable<Client>{
 		this.e1Bonus = e1Bonus;
 		this.e2Bonus = e2Bonus;
 		this.e3Bonus = e3Bonus;
+		
+		initializeItemList();
+	}
+	
+	private void initializeItemList() {
+		items.clear();
+		boolean[] possibleDays = new boolean[DAY_COUNT];
+		for(int i = arrivalDay;i<departureDay;i++) {
+			HotelItem hotel = new HotelItem();
+			hotel.setDay(i);
+			items.add(hotel);
+			possibleDays[i] = true;
+		}
+		for(EventType type : EventType.values()) {
+			if(getBonus(type.getBonusConstant())>0) {
+				EventItem item = new EventItem();
+				item.setPossibleDays(possibleDays);
+				item.setType(type);
+				items.add(item);
+			}
+		}
+		FlightItem flight1 = new FlightItem();
+		flight1.setType(FlightType.IN);
+		flight1.setDay(arrivalDay);
+		items.add(flight1);
+		
+		FlightItem flight2 = new FlightItem();
+		flight2.setType(FlightType.OUT);
+		flight2.setDay(departureDay);
+		items.add(flight2);
 	}
 
 	/**
 	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
 	 */
 	private void updateItemList(){
+		boolean[] possibleAllocations = new boolean[DAY_COUNT];
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
 		boolean[] occupiedDays = new boolean[DAY_COUNT];
+		HotelTypes allocatedHotelType = null;
 		// look for constraints
 		for(Item item : items){
 			if(item instanceof EventItem && item.isSatisfied()){
@@ -83,13 +120,47 @@ public class Client implements Comparable<Client>{
 			}
 			if (item instanceof HotelItem && item.isSatisfied()) {
 				allocatedHotelDays[((HotelItem)item).getDay()] = true;
+				if(allocatedHotelType != null && allocatedHotelType != ((HotelItem)item).getType()) {
+					// Throw exception or whatever
+				}
+				allocatedHotelType = ((HotelItem)item).getType();
+			} 
+		}
+		
+		// check which hotels are still available
+		if(allocatedHotelType != null) {
+			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, allocatedHotelType);
+		} else {
+			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelTypes.CHEAP);
+			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelTypes.GOOD);
+			boolean[] together = new boolean[DAY_COUNT];
+			int cheapDayCount = 0;
+			int goodDayCount = 0;
+			for(int i = 0;i< DAY_COUNT;i++) {
+				if(cheapStay[i]) {
+					cheapDayCount++;
+				}
+				if(goodStay[i]) {
+					goodDayCount++;
+				}
+				together[i] = cheapStay[i] || goodStay[i];
+			}
+			if(cheapDayCount == goodDayCount) {
+				possibleAllocations = together;
+			} else if (cheapDayCount<goodDayCount) {
+				possibleAllocations = goodStay;
+				allocatedHotelType = HotelTypes.GOOD;
+			} else {
+				possibleAllocations = cheapStay;
+				allocatedHotelType = HotelTypes.CHEAP;
 			}
 		}
-		// find out first day on which a hotel was booked
+		
+		// find out first possible day (either already booked or still possible)
 		int firstDay = -1;
 		int lastDay = -1;
 		for(int i = 0;i<allocatedHotelDays.length;i++) {
-			if(allocatedHotelDays[i]) {
+			if(allocatedHotelDays[i] || possibleAllocations[i]) {
 				if(firstDay == -1) {
 					firstDay = i;
 				}
@@ -107,6 +178,15 @@ public class Client implements Comparable<Client>{
 			if(!item.isSatisfied() && item instanceof EventItem) {
 				((EventItem)item).setPossibleDays(unoccupiedDays);
 			}
+			// if an hotel has already be allocated update types of other hotels!
+			if(item instanceof HotelItem && !item.isSatisfied()) {
+				if(!possibleAllocations[((HotelItem)item).getDay()]) {
+					itemsToRemove.add(item);
+				}
+				if(allocatedHotelType != null) {
+					((HotelItem)item).setType(allocatedHotelType);
+				}
+			}
 			// update flight-days
 			if(!item.isSatisfied() && item instanceof FlightItem) {
 				switch(((FlightItem)item).getType()) {
@@ -115,8 +195,63 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
-		
 		items.removeAll(itemsToRemove);
+	}
+	
+	/**
+	 * returns the longest possible stay for hoteltype
+	 * 
+	 * If there are already some hotels booked, the interval containing these bookings will be taken
+	 * 
+	 * @param bookedDays
+	 * @param hotelType
+	 * @return
+	 */
+	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelTypes hotelType ) {
+		boolean[] overallStay = new boolean[DAY_COUNT];
+		boolean[] unbookedStay = new boolean[DAY_COUNT];
+		for(int i = arrivalDay; i< departureDay;i++) {
+			if(!bookedDays[i]) {
+				boolean possible = closedHotelAuctions.contains(new HotelItem(i,hotelType));
+				overallStay[i] = possible;
+				unbookedStay[i] = possible;
+			} else {
+				overallStay[i] = true;
+			}
+		}
+		
+		int longestStart = -1,longestEnd = -1;
+		int currentStart=-1, currentEnd=-1;
+		boolean isBooked =false;
+		for(int i=arrivalDay;i<departureDay;i++) {
+			if(bookedDays[i]) {
+				isBooked=true;
+			}
+			if(overallStay[i]) {
+				if(currentStart == -1) {
+					currentStart = arrivalDay;
+				}
+				currentEnd = arrivalDay;
+			} else {
+				if(currentEnd-currentStart >= longestEnd-longestStart) {
+					longestEnd = currentEnd;
+					longestStart = currentStart;
+				}
+				if(isBooked) {
+					boolean[] finalArray = new boolean[DAY_COUNT];
+					for(int j = currentStart;j<currentEnd;j++) {
+						finalArray[j] = true;
+					}
+					return finalArray;
+				}
+			}
+		}
+		boolean[] finalArray = new boolean[DAY_COUNT];
+		for(int i = longestStart;i<longestEnd;i++) {
+			finalArray[i] = true;
+		}
+		return finalArray;
+		
 	}
 	
 	/**
@@ -134,7 +269,7 @@ public class Client implements Comparable<Client>{
 		}
 		
 		// make sure hotels are bought first - if there's still a hotel to be bough, buy this first!
-		// TODO probably already allow to buy inflight when there's already a hotel (not necessary all) booked?
+		// TODO probably already allow to buy inflight when hotel for first day is already booked?
 		// TODO allow to buy events for the days that are already booked?
 		if(unsatisfiedItems.isEmpty()) {
 			for(Item item : items) {
@@ -162,6 +297,14 @@ public class Client implements Comparable<Client>{
 		items.remove(remove);
 		items.add(item);
 		updateItemList();
+	}
+	
+	/**
+	 * needs to be called whenever a Hotel-auction was closed
+	 * @param item
+	 */
+	public void auctionClosed(HotelItem item) {
+		closedHotelAuctions.add(item);
 	}
 
 	/**
