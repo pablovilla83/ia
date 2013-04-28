@@ -50,16 +50,9 @@ public class Client implements Comparable<Client>{
 	 * ctd = category-type-day
 	 * @return float
 	 */
-	public float getBuget(String ctd){
-		float value = this.budget.get(ctd);
-		return value;
-	}
-
 
 	private List<Item> items = new ArrayList<Item>();
 	private Set<HotelItem> closedHotelAuctions = new HashSet<HotelItem>();
-
-
 
 	public Client (int id){
 		this.setId(id);
@@ -77,7 +70,7 @@ public class Client implements Comparable<Client>{
 		initializeItemList();
 	}
 	
-	private void initializeItemList() {
+	public void initializeItemList() {
 		items.clear();
 		boolean[] possibleDays = new boolean[DAY_COUNT];
 		for(int i = arrivalDay;i<departureDay;i++) {
@@ -266,6 +259,8 @@ public class Client implements Comparable<Client>{
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				unsatisfiedItems.add(item);
 			}
+			// I know this is wrong, just trying something
+			else if(item instanceof FlightItem && !item.isSatisfied()){unsatisfiedItems.add(item);}
 		}
 		
 		// make sure hotels are bought first - if there's still a hotel to be bough, buy this first!
