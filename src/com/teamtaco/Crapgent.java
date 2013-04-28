@@ -241,6 +241,25 @@ public class Crapgent extends AgentImpl {
 		} 
 	}
 	
+	/**
+	 * finds all clients that need the given {@link Item}
+	 * 
+	 * @param item the item
+	 * @return all clients that need the {@link Item} item
+	 */
+	public List<Client> findClientsByItem(Item item) {
+		List<Client> clients = new ArrayList<Client>();
+		for(Client client: clients) {
+			for(Item currItem : client.whatToBuyNext()) {
+				if(currItem.equals(item) && !item.isSatisfied()) {
+					clients.add(client);
+					break;
+				}
+			}
+		}
+		return clients;
+	}
+	
 	public float calculateMaxPrice(Client c, Item item){
 		float budget = 1000;
 		int auction;
