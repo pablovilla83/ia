@@ -132,48 +132,38 @@ public class Crapgent extends AgentImpl {
 	public float calculateMaxPrice(Client c, Item item){
 		float budget = 1000;
 		int auction;
+		int fixedFee = 600;
+		
 		if (item instanceof HotelItem){
 			HotelItem hotel = (HotelItem) item;
-			if(hotel.getType() == HotelTypes.GOOD){
-				budget -= 600;
+			budget -= 600;
+			budget -= fixedFee;
+			
+			if(hotel.getType() == HotelTypes.GOOD)
 				budget += c.getHotelBonus();
-				budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
-				return budget;
-			}else{
-				budget -= 600;
-				budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
-				return budget;
-			}
+			
+			budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
+			return budget;
 		}
+		
 		else if(item instanceof EventItem){
 			EventItem event = (EventItem) item;
-			if(event.getType() == EventType.Event1){budget += c.getE1Bonus();return budget;}
-			else if(event.getType() == EventType.Event2){budget += c.getE2Bonus();return budget;}
-			else{budget += c.getE3Bonus();return budget;}
+			if(event.getType() == EventType.Event1)
+				budget += c.getE1Bonus();
+			
+			else if(event.getType() == EventType.Event2)
+				budget += c.getE2Bonus();
+			
+			else
+				budget += c.getE3Bonus();
+			
+			budget -= fixedFee;
+			
+			return budget;
+			
 		}
 		else{
 			FlightItem flight = (FlightItem) item;
-/*			if(flight.getType() == FlightType.IN){
-				//If we are buying a Flight it means that we have bought the Hotel so we get the last quote = closing price
-				//We will break it up in days to calculate penalties
-				if(flight.getDay()==c.getActualArrivalDay()){
-					auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
-					budget -= prices[auction];
-					return budget;
-				}
-				//If we are referencing one of the days in the middle
-				else if (flight.getDay()>c.getActualArrivalDay() && flight.getDay()<c.getActualDepartureDay()){
-					auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
-					budget -= prices[auction];
-					return budget;
-				}
-				//TODO:
-				else{return budget;}
-			}
-			//TODO:
-			else{return budget;}
-*/
-			
 			if(flight.getType() == FlightType.IN){
 				auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
 				budget -= prices[auction];
