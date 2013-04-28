@@ -348,6 +348,21 @@ public class Client implements Comparable<Client>{
 		}
 		return 0;
 	}
+	
+	/**
+	 * Gives the overall expenses of the items already bought so far
+	 * 
+	 * @return overall expenses
+	 */
+	public int getCurrentExpenses() {
+		int expenses = 0;
+		for(Item item : items) {
+			if(item.isSatisfied()) {
+				expenses+=item.getActualPrice();
+			}
+		}
+		return expenses;
+	}
 
 	/**
 	 * Indicates if the package bought so far is feasible or not
