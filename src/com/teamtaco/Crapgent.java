@@ -249,7 +249,7 @@ public class Crapgent extends AgentImpl {
 	 */
 	public List<Client> findClientsByItem(Item item) {
 		List<Client> clients = new ArrayList<Client>();
-		for(Client client: clients) {
+		for(Client client: this.clients) {
 			for(Item currItem : client.whatToBuyNext()) {
 				if(currItem.equals(item) && !item.isSatisfied()) {
 					clients.add(client);
