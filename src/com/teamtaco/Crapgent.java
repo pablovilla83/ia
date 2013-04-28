@@ -56,7 +56,6 @@ public class Crapgent extends AgentImpl {
 			List<Item> listItems = new ArrayList<Item>();
 			listItems = client.whatToBuyNext();
 			
-			int type;
 			for(Item item : listItems){
 				item.setMaxPrice((int) calculateMaxPrice(client, item));
 				if(item instanceof FlightItem){
@@ -200,9 +199,9 @@ public class Crapgent extends AgentImpl {
 	      int inFlight = agent.getClientPreference(i, TACAgent.ARRIVAL);
 	      int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);   
 		  
-	      int auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
+	      int auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
 		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-		  auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
+		  auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
 		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
 	    
 	    }
@@ -231,7 +230,7 @@ public class Crapgent extends AgentImpl {
 		if (agent.getAllocation(auction)>0){
 			if(agent.getOwn(auction)>0){
 				//We won - Call the bookItem method
-				agent.getAuctionCategory(auction);
+				TACAgent.getAuctionCategory(auction);
 				for (Client client: clients){
 					//client.
 				}
@@ -277,7 +276,7 @@ public class Crapgent extends AgentImpl {
 		else{
 			FlightItem flight = (FlightItem) item;
 			if(flight.getType() == FlightType.IN){
-				auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
+				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
 				budget -= prices[auction];
 				if(flight.getDay() != c.getActualArrivalDay()) {
 					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualArrivalDay()));
@@ -287,7 +286,7 @@ public class Crapgent extends AgentImpl {
 			}
 			
 			else {
-				auction = agent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, flight.getDay());
+				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, flight.getDay());
 				budget -= prices[auction];
 				if (flight.getDay() != c.getActualDepartureDay()){
 					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualDepartureDay()));
