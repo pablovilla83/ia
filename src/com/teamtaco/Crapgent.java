@@ -136,7 +136,6 @@ public class Crapgent extends AgentImpl {
 		
 		if (item instanceof HotelItem){
 			HotelItem hotel = (HotelItem) item;
-			budget -= 600;
 			budget -= fixedFee;
 			
 			if(hotel.getType() == HotelTypes.GOOD)
