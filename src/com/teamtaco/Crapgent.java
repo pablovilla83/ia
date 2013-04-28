@@ -5,6 +5,7 @@ package com.teamtaco;
 
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 
 import com.teamtaco.util.EventType;
 import com.teamtaco.util.FlightType;
@@ -12,6 +13,7 @@ import com.teamtaco.util.HotelTypes;
 
 import se.sics.tac.aw.AgentImpl;
 import se.sics.tac.aw.Bid;
+import se.sics.tac.aw.DummyAgent;
 import se.sics.tac.aw.Quote;
 import se.sics.tac.aw.TACAgent;
 import se.sics.tac.aw.Transaction;
@@ -25,7 +27,8 @@ public class Crapgent extends AgentImpl {
 	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
-
+	private static final Logger log =
+		    Logger.getLogger(Crapgent.class.getName());
 	float[] prices= new float[28];	
 	/*
 	 * (non-Javadoc)
@@ -65,7 +68,13 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void bidUpdated(Bid bid) {
-		//useless
+		log.fine("Bid Updated: id=" + bid.getID() + " auction="
+			     + bid.getAuction() + " state="
+			     + bid.getProcessingStateAsString());
+		    log.fine("       Hash: " + bid.getBidHash());
+		if(bid.getProcessingState()==Bid.VALID){
+			//Check if the bid was successfully submitted and mark the item as submitted? 
+		}
 	}
 
 	/**
@@ -114,7 +123,8 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void gameStopped() {
-		// TODO Auto-generated method stub
+		// TODO Get the final asking price array so that we can improve next rounds
+		log.fine("Game Stopped!");
 
 	}
 
@@ -125,8 +135,16 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void auctionClosed(int auction) {
-		// TODO Auto-generated method stub
-
+		log.fine("*** Auction " + auction + " closed!");
+		//check if we placed a bid for the auction that closed
+		if (agent.getAllocation(auction)>0){
+			if(agent.getOwn(auction)>0){
+				//We won - Call the bookItem method
+			}
+			else{
+				//We lost the auction
+			}
+		} 
 	}
 	
 	public float calculateMaxPrice(Client c, Item item){
