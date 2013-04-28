@@ -102,6 +102,8 @@ public class Client implements Comparable<Client>{
 	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
 	 */
 	private void updateItemList(){
+//		System.out.println("before: ");
+//		System.out.println(createItemListString(items));
 		boolean[] possibleAllocations = new boolean[DAY_COUNT];
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
 		boolean[] occupiedDays = new boolean[DAY_COUNT];
@@ -189,6 +191,10 @@ public class Client implements Comparable<Client>{
 			}
 		}
 		items.removeAll(itemsToRemove);
+//		System.out.println("removing: ");
+//		System.out.println(createItemListString(itemsToRemove));
+//		System.out.println("after removal: ");
+//		System.out.println(createItemListString(items));
 	}
 	
 	/**
@@ -205,7 +211,7 @@ public class Client implements Comparable<Client>{
 		boolean[] unbookedStay = new boolean[DAY_COUNT];
 		for(int i = arrivalDay; i< departureDay;i++) {
 			if(!bookedDays[i]) {
-				boolean possible = closedHotelAuctions.contains(new HotelItem(i,hotelType));
+				boolean possible = !closedHotelAuctions.contains(new HotelItem(i,hotelType));
 				overallStay[i] = possible;
 				unbookedStay[i] = possible;
 			} else {
@@ -222,9 +228,9 @@ public class Client implements Comparable<Client>{
 			}
 			if(overallStay[i]) {
 				if(currentStart == -1) {
-					currentStart = arrivalDay;
+					currentStart = i;
 				}
-				currentEnd = arrivalDay;
+				currentEnd = i;
 			} else {
 				if(currentEnd-currentStart >= longestEnd-longestStart) {
 					longestEnd = currentEnd;
@@ -232,15 +238,19 @@ public class Client implements Comparable<Client>{
 				}
 				if(isBooked) {
 					boolean[] finalArray = new boolean[DAY_COUNT];
-					for(int j = currentStart;j<currentEnd;j++) {
+					for(int j = currentStart;j<=currentEnd;j++) {
 						finalArray[j] = true;
 					}
 					return finalArray;
 				}
 			}
 		}
+		if(longestStart == -1 || longestEnd == -1) {
+			longestStart = currentStart;
+			longestEnd = currentEnd;
+		}
 		boolean[] finalArray = new boolean[DAY_COUNT];
-		for(int i = longestStart;i<longestEnd;i++) {
+		for(int i = longestStart;i<=longestEnd;i++) {
 			finalArray[i] = true;
 		}
 		return finalArray;
@@ -253,7 +263,7 @@ public class Client implements Comparable<Client>{
 	 * @return
 	 */
 	public List<Item> whatToBuyNext(){
-		//updateItemList();
+		updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
@@ -273,6 +283,7 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
+		System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
@@ -296,6 +307,7 @@ public class Client implements Comparable<Client>{
 	
 	/**
 	 * needs to be called whenever a Hotel-auction was closed
+	 * 
 	 * @param item
 	 */
 	public void auctionClosed(HotelItem item) {
@@ -486,5 +498,35 @@ public class Client implements Comparable<Client>{
 		String print = "id: " + this.getId() + "; e1: " + this.getE1Bonus() + "; e2: " + this.getE2Bonus() + "; e3: " + this.getE3Bonus() + "; arrival: "+ this.getArrivalDay() + "; departure: " + this.getDepartureDay() + "; hotel: " + this.getHotelBonus();
 
 		return print;
+	}
+	
+	// TODO remove
+	public String createItemListString(List<Item> items) {
+		StringBuilder sb = new StringBuilder(this.toString());
+		for(Item item : items) {
+			sb.append("\n\t");
+			sb.append(item.getClass().getSimpleName());
+			sb.append("[MaxPrice: ");
+			sb.append(item.getMaxPrice());
+			sb.append(", actualPrice: ");
+			sb.append(item.getActualPrice());
+			sb.append(", satisfied: ");
+			sb.append(item.isSatisfied());
+			if(item instanceof HotelItem) {
+				sb.append(", day: ");
+				sb.append(((HotelItem)item).getDay());
+				sb.append(", type: ");
+				sb.append(((HotelItem)item).getType());
+			} else if(item instanceof FlightItem) {
+				sb.append(", day: ");
+				sb.append(((FlightItem)item).getDay());
+				sb.append(", type: ");
+				sb.append(((FlightItem)item).getType().name());
+			} else if(item instanceof EventItem) {
+				sb.append(", type: ");
+				sb.append(((EventItem)item).getType().name());
+			}
+		}
+		return sb.toString();
 	}
 }
