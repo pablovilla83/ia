@@ -294,6 +294,7 @@ public class Client implements Comparable<Client>{
 					&& inFlightReady 
 					&& ((FlightItem)item).getType() == FlightType.IN
 					&& !add) {
+				unsatisfiedItems.add(item);
 			}
 		}
 		//System.out.println(createItemListString(unsatisfiedItems));
