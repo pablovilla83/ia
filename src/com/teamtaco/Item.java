@@ -1,6 +1,5 @@
 package com.teamtaco;
 
-
 public abstract class Item {
 	private int maxPrice;
 	private int actualPrice = -1;
