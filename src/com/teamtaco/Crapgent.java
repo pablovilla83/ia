@@ -71,7 +71,8 @@ public class Crapgent extends AgentImpl {
 	
 	private void manageHotelBid(Client client, HotelItem item, int auction) {
 		int type;
-		if (((HotelItem) item).getType() == HotelTypes.GOOD) {
+		
+		if (item.getType() == HotelTypes.GOOD || (item.getType() == null && client.getHotelBonus()>100) ) {
 			type = TACAgent.TYPE_GOOD_HOTEL;
 		} else {
 			type = TACAgent.TYPE_CHEAP_HOTEL;
@@ -263,6 +264,7 @@ public class Crapgent extends AgentImpl {
 						if(item instanceof HotelItem && 
 								TACAgent.getAuctionDay(auction)==((HotelItem) item).getDay() &&
 								TACAgent.getAuctionType(auction)==type){
+							//client.bookItem(item);
 							client.auctionClosed((HotelItem)item);
 						}
 									
