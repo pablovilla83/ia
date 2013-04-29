@@ -5,28 +5,28 @@ package com.teamtaco;
 
 import se.sics.tac.aw.TACAgent;
 
-import com.teamtaco.util.HotelTypes;
+import com.teamtaco.util.HotelType;
 
 /**
  * @author Frederik
  *
  */
 public class HotelItem extends Item {
-	private HotelTypes type = null;
+	private HotelType type = null;
 	
 	public HotelItem() {
 		
 	}
 	
-	public HotelItem(int day, HotelTypes type) {
+	public HotelItem(int day, HotelType type) {
 		this.day = day;
 		this.type = type;
 	}
 	
-	public HotelTypes getType() {
+	public HotelType getType() {
 		return type;
 	}
-	public void setType(HotelTypes type) {
+	public void setType(HotelType type) {
 		this.type = type;
 	}
 	public int getDay() {

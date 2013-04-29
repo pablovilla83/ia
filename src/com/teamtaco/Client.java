@@ -14,7 +14,7 @@ import se.sics.tac.aw.TACAgent;
 
 import com.teamtaco.util.EventType;
 import com.teamtaco.util.FlightType;
-import com.teamtaco.util.HotelTypes;
+import com.teamtaco.util.HotelType;
 
 
 /**
@@ -113,17 +113,14 @@ public class Client implements Comparable<Client>{
 	
 	public boolean isInBetweenAllocatedDays(HotelItem hotelItem) {
 		int firstAllocated = 200, lastAllocated = -1;
-		boolean changed = false;
 		for(Item item : items) {
 			if(item instanceof HotelItem && item.isSatisfied()) {
 				int currDay = ((HotelItem)item).getDay();
 				if(currDay < firstAllocated) {
 					firstAllocated = currDay;
-					changed = true;
 				}
 				if(currDay > lastAllocated) {
 					lastAllocated = currDay;
-					changed = true;
 				}
 			}
 		}
@@ -132,23 +129,23 @@ public class Client implements Comparable<Client>{
 
 	/**
 	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
+	 * @throws Exception 
 	 */
 	private void updateItemList(){
-//		System.out.println("before: ");
-//		System.out.println(createItemListString(items));
 		boolean[] possibleAllocations = new boolean[DAY_COUNT];
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
 		boolean[] occupiedDays = new boolean[DAY_COUNT];
-		HotelTypes allocatedHotelType = null;
+		HotelType allocatedHotelType = null;
 		// look for constraints
 		for(Item item : items){
 			if(item instanceof EventItem && item.isSatisfied()){
 				occupiedDays[((EventItem)item).getBookedDay()] = true;
 			}
-			if (item instanceof HotelItem && item.isSatisfied()) {
+			else if (item instanceof HotelItem && item.isSatisfied()) {
 				allocatedHotelDays[((HotelItem)item).getDay()] = true;
 				if(allocatedHotelType != null && allocatedHotelType != ((HotelItem)item).getType()) {
 					// Throw exception or whatever
+					System.err.println("Different hotel types");
 				}
 				allocatedHotelType = ((HotelItem)item).getType();
 			} 
@@ -158,8 +155,8 @@ public class Client implements Comparable<Client>{
 		if(allocatedHotelType != null) {
 			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, allocatedHotelType);
 		} else {
-			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelTypes.CHEAP);
-			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelTypes.GOOD);
+			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelType.CHEAP);
+			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelType.GOOD);
 			boolean[] together = new boolean[DAY_COUNT];
 			int cheapDayCount = 0;
 			int goodDayCount = 0;
@@ -176,10 +173,10 @@ public class Client implements Comparable<Client>{
 				possibleAllocations = together;
 			} else if (cheapDayCount<goodDayCount) {
 				possibleAllocations = goodStay;
-				allocatedHotelType = HotelTypes.GOOD;
+				allocatedHotelType = HotelType.GOOD;
 			} else {
 				possibleAllocations = cheapStay;
-				allocatedHotelType = HotelTypes.CHEAP;
+				allocatedHotelType = HotelType.CHEAP;
 			}
 		}
 		
@@ -194,8 +191,13 @@ public class Client implements Comparable<Client>{
 				lastDay = i;
 			}
 		}
-		arrivalDay = firstDay;
-		departureDay = lastDay+1;
+		if(firstDay == -1 || lastDay == -1) {
+			arrivalDay = 0;
+			departureDay = 0;
+		} else {
+			arrivalDay = firstDay;
+			departureDay = lastDay+1;
+		}
 		
 		// look up which days are still free for activities
 		boolean[] unoccupiedDays = new boolean[DAY_COUNT];
@@ -224,11 +226,15 @@ public class Client implements Comparable<Client>{
 				}
 			}
 		}
+		if(!itemsToRemove.isEmpty()) {
+			System.out.println("removing: ");
+			System.out.println(createItemListString(itemsToRemove));
+			
+			System.out.println("after removal: ");
+			System.out.println(createItemListString(items));
+		}
+		
 		items.removeAll(itemsToRemove);
-//		System.out.println("removing: ");
-//		System.out.println(createItemListString(itemsToRemove));
-//		System.out.println("after removal: ");
-//		System.out.println(createItemListString(items));
 	}
 	
 	/**
@@ -240,7 +246,7 @@ public class Client implements Comparable<Client>{
 	 * @param hotelType
 	 * @return
 	 */
-	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelTypes hotelType ) {
+	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelType hotelType ) {
 		boolean[] overallStay = new boolean[DAY_COUNT];
 		boolean[] unbookedStay = new boolean[DAY_COUNT];
 		for(int i = arrivalDay; i< departureDay;i++) {
@@ -339,15 +345,15 @@ public class Client implements Comparable<Client>{
 	 * @param item the item
 	 */
 	public void bookItem(Item item, int actualPrice){
-		Item remove = null;
 		item.setActualPrice(actualPrice);
 		for(Item tmpItem : items) {
 			if(item.equals(tmpItem)) {
-				remove = tmpItem;
+				tmpItem.setActualPrice(actualPrice);
+				if(item instanceof EventItem && tmpItem instanceof EventItem) {
+					((EventItem)tmpItem).setBookedDay(((EventItem)item).getBookedDay());
+				}
 			}
 		}
-		items.remove(remove);
-		items.add(item);
 		updateItemList();
 	}
 	
@@ -358,39 +364,10 @@ public class Client implements Comparable<Client>{
 	 */
 	public void auctionClosed(HotelItem item) {
 		closedHotelAuctions.add(item);
+		System.out.println("auction closed for " + item.getDay() + " " + item.getType());
+		updateItemList();
 	}
 
-	/**
-	 * Calculates the current utility
-	 *
-	 * @return the current utility
-	 */
-	public int getCurrentUtility(){
-		if(isFeasible()){
-			int utility = 1000;
-
-			// TODO consider penalties using getActualArrival and getActualDeparture and so on
-			boolean goodHotel = false;
-			for(Item item:items){
-				if(item.isSatisfied()) {
-					utility -= item.getActualPrice();
-					if(item instanceof EventItem) {
-						utility += getBonus(((EventItem)item).getType().getBonusConstant());
-					} else if(item instanceof HotelItem) {
-						if(((HotelItem)item).getType() == HotelTypes.GOOD) {
-							goodHotel = true;
-						}
-					}
-				}
-			}
-			if(goodHotel){
-				utility+= getBonus(TACAgent.HOTEL_VALUE);
-			}
-			return utility;
-		}
-		return 0;
-	}
-	
 	/**
 	 * Gives the overall expenses of the items already bought so far
 	 * 

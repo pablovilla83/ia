@@ -22,7 +22,7 @@ import se.sics.tac.util.ArgEnumerator;
 
 import com.teamtaco.util.EventType;
 import com.teamtaco.util.FlightType;
-import com.teamtaco.util.HotelTypes;
+import com.teamtaco.util.HotelType;
 
 /**
  * @author Frederik
@@ -55,9 +55,6 @@ public class Crapgent extends AgentImpl {
 		// here comes update of bids
 		int auction = quote.getAuction();
 		prices[auction] = quote.getAskPrice();
-//		if(TACAgent.getAuctionCategory(auction)==TACAgent.CAT_FLIGHT) {
-//			System.out.println("quote update for flights");
-//		}
 		//check if the quote that got updated is on the whatToBuyNext list...
 		for (Client client: clients){
 			List<Item> listItems = new ArrayList<Item>();
@@ -70,6 +67,7 @@ public class Crapgent extends AgentImpl {
 				}else if(item instanceof HotelItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL){
 					manageHotelBid(client, (HotelItem)item, auction);
 				}else if (item instanceof EventItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_ENTERTAINMENT){
+					// TODO test here if we already have such an event!
 					manageEventBid(client, (EventItem)item, auction);
 				}
 			}
@@ -79,7 +77,7 @@ public class Crapgent extends AgentImpl {
 	private void manageHotelBid(Client client, HotelItem item, int auction) {
 		int type;
 		
-		if (item.getType() == HotelTypes.GOOD || (item.getType() == null && client.getHotelBonus()>100) ) {
+		if (item.getType() == HotelType.GOOD || (item.getType() == null && client.getHotelBonus()>100) ) {
 			type = TACAgent.TYPE_GOOD_HOTEL;
 		} else {
 			type = TACAgent.TYPE_CHEAP_HOTEL;
@@ -106,32 +104,31 @@ public class Crapgent extends AgentImpl {
 		if (TACAgent.getAuctionType(auction) == type
 				&& TACAgent.getAuctionDay(auction) == ((FlightItem) item).getDay()) {
 			// if the MaxPrice is feasible continue to bid
-			if (item.getMaxPrice() >= prices[auction]) {
-				int alloc = agent.getAllocation(auction);
-				if (agent.getOwn(auction) < alloc) {
-					Bid bid = new Bid(auction);
-					bid.addBidPoint(1, item.getMaxPrice());
-					agent.submitBid(bid);
-					client.bookItem(item,(int)prices[auction]);
+//			if (item.getMaxPrice() >= prices[auction]) {
+				Bid bid = new Bid(auction);
+				bid.addBidPoint(1, 1000);
+				synchronized (item) {
+					if(!item.isSatisfied()) {
+						agent.setAllocation(auction, agent.getAllocation(auction)+1);
+						agent.submitBid(bid);
+						client.bookItem(item,(int)prices[auction]);
+					}
 				}
-			}
+//			}
 		}
 	}
 	
 	private void manageEventBid(Client client, EventItem item, int auction) {
-		int type;
-		if (((EventItem) item).getType() == EventType.Event1) {
-			type = TACAgent.E1;
-		} else if (((EventItem) item).getType() == EventType.Event2) {
-			type = TACAgent.E2;
-		} else {
-			type = TACAgent.E3;
-		}
-		// TODO: ask fred about getBookedDay
-		if (TACAgent.getAuctionType(auction) == type
-				&& TACAgent.getAuctionDay(auction) == ((EventItem) item)
-						.getBookedDay()) {
-			// if the MaxPrice is feasible continue to
+		if (TACAgent.getAuctionType(auction) == item.getType().getBonusConstant()
+				&& item.getPossibleDays()[TACAgent.getAuctionDay(auction)]) {
+			if(client.getBonus(item.getType().getBonusConstant())> agent.getQuote(auction).getAskPrice()) {
+				// place bid
+				Bid bid = new Bid(auction);
+				bid.addBidPoint(1, agent.getQuote(auction).getAskPrice()+1);
+				agent.submitBid(bid);
+				item.setBookedDay(TACAgent.getAuctionDay(auction));
+				client.bookItem(item, (int)agent.getQuote(auction).getAskPrice());
+			}
 		}
 	}
 	
@@ -207,11 +204,12 @@ public class Crapgent extends AgentImpl {
 	      int inFlight = agent.getClientPreference(i, TACAgent.ARRIVAL);
 	      int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);   
 		  int type;
+		  int auction;
 		  //Allocation of flights
-	      int auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
-		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-		  auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
-		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+//	      int auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
+//		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+//		  auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
+//		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
 		  //Allocation of hotels
 		  int hotelValue = agent.getClientPreference(i, TACAgent.HOTEL_VALUE);
 		  if(hotelValue > 100){ 
@@ -248,6 +246,7 @@ public class Crapgent extends AgentImpl {
 		//check if we placed a bid for the auction that closed
 		if (agent.getAllocation(auction)>0){
 			int quantity = agent.getOwn(auction);
+			int category = TACAgent.getAuctionCategory(auction);
 			int type = TACAgent.getAuctionType(auction);
 			int day = TACAgent.getAuctionDay(auction);
 			// first collect clients that need this item
@@ -272,8 +271,8 @@ public class Crapgent extends AgentImpl {
 					}
 				}
 				// notify all clients that auction closed
-				if(type == TACAgent.CAT_HOTEL) {
-					HotelItem item = new HotelItem(day,HotelTypes.getTypeForConstant(type));
+				if(category == TACAgent.CAT_HOTEL) {
+					HotelItem item = new HotelItem(day,HotelType.getTypeForConstant(type));
 					client.auctionClosed(item);
 				}
 			}
@@ -285,7 +284,7 @@ public class Crapgent extends AgentImpl {
 			}
 			for(Client client : clients) {
 				if(type == TACAgent.CAT_HOTEL) {
-					HotelItem item = new HotelItem(day,HotelTypes.getTypeForConstant(type));
+					HotelItem item = new HotelItem(day,HotelType.getTypeForConstant(type));
 					client.auctionClosed(item);
 				}
 			}
@@ -320,7 +319,7 @@ public class Crapgent extends AgentImpl {
 			HotelItem hotel = (HotelItem) item;
 			budget -= fixedFee;
 			
-			if(hotel.getType() == HotelTypes.GOOD)
+			if(hotel.getType() == HotelType.GOOD)
 				budget += c.getHotelBonus();
 			
 			budget /= (c.unallocatedHotelDays());
@@ -364,7 +363,6 @@ public class Crapgent extends AgentImpl {
 //					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialArrivalDay()));
 //					budget -= travelPenalty;
 //				}
-				System.out.println(agent.getGameTimeLeft());
 				float time = agent.getGameTimeLeft()/1000-30;
 				time = time < 1? 1 : time;
 				budget*= (1+1/time);
