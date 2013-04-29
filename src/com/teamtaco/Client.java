@@ -100,6 +100,35 @@ public class Client implements Comparable<Client>{
 		flight2.setDay(departureDay);
 		items.add(flight2);
 	}
+	
+	public int unallocatedHotelDays() {
+		int count = 0;
+		for(Item item : items) {
+			if(item instanceof HotelItem && !item.isSatisfied()) {
+				count++;
+			}
+		}
+		return count;
+	}
+	
+	public boolean isInBetweenAllocatedDays(HotelItem hotelItem) {
+		int firstAllocated = 200, lastAllocated = -1;
+		boolean changed = false;
+		for(Item item : items) {
+			if(item instanceof HotelItem && item.isSatisfied()) {
+				int currDay = ((HotelItem)item).getDay();
+				if(currDay < firstAllocated) {
+					firstAllocated = currDay;
+					changed = true;
+				}
+				if(currDay > lastAllocated) {
+					lastAllocated = currDay;
+					changed = true;
+				}
+			}
+		}
+		return (hotelItem.getDay() >firstAllocated && hotelItem.getDay() < lastAllocated);
+	}
 
 	/**
 	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
@@ -312,7 +341,6 @@ public class Client implements Comparable<Client>{
 	public void bookItem(Item item, int actualPrice){
 		Item remove = null;
 		item.setActualPrice(actualPrice);
-		System.out.println("called bookItem");
 		for(Item tmpItem : items) {
 			if(item.equals(tmpItem)) {
 				remove = tmpItem;
@@ -329,11 +357,7 @@ public class Client implements Comparable<Client>{
 	 * @param item
 	 */
 	public void auctionClosed(HotelItem item) {
-		System.out.println("I know that this item has closed "+ item.getType() + " "+item.getDay());
 		closedHotelAuctions.add(item);
-		for(HotelItem hotel : closedHotelAuctions){
-			System.out.println(hotel.getDay() + " " + hotel.getType());
-		}
 	}
 
 	/**

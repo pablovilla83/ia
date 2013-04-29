@@ -4,8 +4,12 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedSet;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
@@ -79,17 +83,11 @@ public class Crapgent extends AgentImpl {
 		}
 		if (TACAgent.getAuctionType(auction) == type
 				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
-			System.out.println("I am checking the max price");
 			if (item.getMaxPrice() >= prices[auction]){
 				//TODO: run setAllocation method here
 				Bid bid = new Bid(auction);
 				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
-				System.out.println("submitting bid with alloc="
-						+ agent.getAllocation(auction) + " own="
-						+ agent.getOwn(auction));
 				agent.submitBid(bid);
-				System.out.println("I bid " + bid.getBidString());
-				//client.bookItem(item);
 			}
 			// if the MaxPrice is feasible continue to bid
 		}
@@ -110,11 +108,7 @@ public class Crapgent extends AgentImpl {
 				if (agent.getOwn(auction) < alloc) {
 					Bid bid = new Bid(auction);
 					bid.addBidPoint(1, item.getMaxPrice());
-					log.finest("submitting bid with alloc="
-							+ agent.getAllocation(auction) + " own="
-							+ agent.getOwn(auction));
 					agent.submitBid(bid);
-					System.out.println("I bid " + bid.getBidString());
 					client.bookItem(item,(int)prices[auction]);
 				}
 			}
@@ -253,22 +247,40 @@ public class Crapgent extends AgentImpl {
 			int quantity = agent.getOwn(auction);
 			int type = TACAgent.getAuctionType(auction);
 			int day = TACAgent.getAuctionDay(auction);
+			// first collect clients that need this item
+			Map<Client, Item> clientMap = new TreeMap<Client, Item>(new Comparator<Client>() {
+
+				@Override
+				public int compare(Client o1, Client o2) {
+					return((Integer)o1.unallocatedHotelDays()).compareTo(o2.unallocatedHotelDays());
+				}
+			});
 			for(Client client : clients) {
 				for(Item item : client.whatToBuyNext()) {
-					if(quantity > 0
-							&& item.getTacCategory() == TACAgent.getAuctionCategory(auction)){
+					if(item.getTacCategory() == TACAgent.getAuctionCategory(auction)){
 						// book hotels
 						if(item instanceof HotelItem) {
 							HotelItem hotelItem = (HotelItem)item;
 							if(hotelItem.getDay() == day
 									&& (hotelItem.getType() == null || hotelItem.getType().getTacType() == type)) {
-								client.bookItem(hotelItem, (int)agent.getQuote(auction).getAskPrice());
-								quantity--;
+								clientMap.put(client, hotelItem);
 							}
 						}
 					}
 				}
 				// notify all clients that auction closed
+				if(type == TACAgent.CAT_HOTEL) {
+					HotelItem item = new HotelItem(day,HotelTypes.getTypeForConstant(type));
+					client.auctionClosed(item);
+				}
+			}
+			for(Entry<Client, Item> entry : clientMap.entrySet()) {
+				if(quantity > 0) {
+					entry.getKey().bookItem(entry.getValue(), (int)agent.getQuote(auction).getAskPrice());
+					quantity--;
+				}
+			}
+			for(Client client : clients) {
 				if(type == TACAgent.CAT_HOTEL) {
 					HotelItem item = new HotelItem(day,HotelTypes.getTypeForConstant(type));
 					client.auctionClosed(item);
@@ -308,7 +320,14 @@ public class Crapgent extends AgentImpl {
 			if(hotel.getType() == HotelTypes.GOOD)
 				budget += c.getHotelBonus();
 			
-			budget /= (c.getDepartureDay()-c.getArrivalDay());
+			budget /= (c.unallocatedHotelDays());
+			// because we won't always pay our max bid we can add a threshold!
+			budget *= 1.25;
+			// hotels that need connect two days with each other are more important
+			if(c.isInBetweenAllocatedDays(hotel)) {
+				System.out.println("is in between allocated days");
+				budget *=1.75;
+			}
 			return budget;
 		}
 		
