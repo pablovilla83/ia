@@ -58,11 +58,11 @@ public class Crapgent extends AgentImpl {
 			
 			for(Item item : listItems){
 				item.setMaxPrice((int) calculateMaxPrice(client, item));
-				if(item instanceof FlightItem){
+				if(item instanceof FlightItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_FLIGHT){
 					manageFlightBid(client, (FlightItem)item, auction);
-				}else if(item instanceof HotelItem){
+				}else if(item instanceof HotelItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL){
 					manageHotelBid(client, (HotelItem)item, auction);
-				}else{
+				}else if (item instanceof EventItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_ENTERTAINMENT){
 					manageEventBid(client, (EventItem)item, auction);
 				}
 			}
@@ -115,7 +115,7 @@ public class Crapgent extends AgentImpl {
 							+ agent.getOwn(auction));
 					agent.submitBid(bid);
 					System.out.println("I bid " + bid.getBidString());
-					client.bookItem(item);
+					client.bookItem(item,(int)prices[auction]);
 				}
 			}
 		}
@@ -223,7 +223,7 @@ public class Crapgent extends AgentImpl {
 			  type = TACAgent.TYPE_CHEAP_HOTEL;
 		  }
 			  for (int d = inFlight; d < outFlight; d++) {
-				  auction = agent.getAuctionFor(TACAgent.CAT_HOTEL, type, d);	
+				  auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type, d);	
 				  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
 			  }
 		}
@@ -250,29 +250,29 @@ public class Crapgent extends AgentImpl {
 		log.fine("*** Auction " + auction + " closed!");
 		//check if we placed a bid for the auction that closed
 		if (agent.getAllocation(auction)>0){
-			if(agent.getOwn(auction)>0){
-				//We won - Call the bookItem method	
-				if (TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL)
-				for (Client client: clients){
-					List<Item> listItems = new ArrayList<Item>();
-					listItems = client.whatToBuyNext();
-					int type =0;
-					for(Item item : listItems){
-						if (((HotelItem) item).getType()==HotelTypes.GOOD){
-							type = 1;
+			int quantity = agent.getOwn(auction);
+			int type = TACAgent.getAuctionType(auction);
+			int day = TACAgent.getAuctionDay(auction);
+			for(Client client : clients) {
+				for(Item item : client.whatToBuyNext()) {
+					if(quantity > 0
+							&& item.getTacCategory() == TACAgent.getAuctionCategory(auction)){
+						// book hotels
+						if(item instanceof HotelItem) {
+							HotelItem hotelItem = (HotelItem)item;
+							if(hotelItem.getDay() == day
+									&& (hotelItem.getType() == null || hotelItem.getType().getTacType() == type)) {
+								client.bookItem(hotelItem, (int)agent.getQuote(auction).getAskPrice());
+								quantity--;
+							}
 						}
-						if(item instanceof HotelItem && 
-								TACAgent.getAuctionDay(auction)==((HotelItem) item).getDay() &&
-								TACAgent.getAuctionType(auction)==type){
-							//client.bookItem(item);
-							client.auctionClosed((HotelItem)item);
-						}
-									
-						}
+					}
 				}
-			}
-			else{
-				//We lost the auction
+				// notify all clients that auction closed
+				if(type == TACAgent.CAT_HOTEL) {
+					HotelItem item = new HotelItem(day,HotelTypes.getTypeForConstant(type));
+					client.auctionClosed(item);
+				}
 			}
 		} 
 	}

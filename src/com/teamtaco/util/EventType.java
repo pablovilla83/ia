@@ -23,5 +23,4 @@ public enum EventType {
 	public int getBonusConstant() {
 		return constant;
 	}
-
 }

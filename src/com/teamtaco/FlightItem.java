@@ -3,6 +3,8 @@
  */
 package com.teamtaco;
 
+import se.sics.tac.aw.TACAgent;
+
 import com.teamtaco.util.FlightType;
 
 /**
@@ -37,5 +39,9 @@ public class FlightItem extends Item {
 			return true;
 		}
 		return false;
+	}
+	@Override
+	public int getTacCategory() {
+		return TACAgent.CAT_FLIGHT;
 	}
 }

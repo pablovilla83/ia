@@ -3,6 +3,8 @@
  */
 package com.teamtaco;
 
+import se.sics.tac.aw.TACAgent;
+
 import com.teamtaco.util.HotelTypes;
 
 /**
@@ -58,5 +60,10 @@ public class HotelItem extends Item {
 			code*=-1;
 		}
 		return code;
+	}
+
+	@Override
+	public int getTacCategory() {
+		return TACAgent.CAT_HOTEL;
 	}
 }

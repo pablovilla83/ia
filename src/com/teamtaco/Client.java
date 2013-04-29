@@ -23,7 +23,6 @@ import com.teamtaco.util.HotelTypes;
  */
 public class Client implements Comparable<Client>{
 
-	public static final int RANDOM_HOTEL_TYPE = 1337;
 	private static final int DAY_COUNT = 6;
 
 	private int id;
@@ -256,6 +255,9 @@ public class Client implements Comparable<Client>{
 			longestEnd = currentEnd;
 		}
 		boolean[] finalArray = new boolean[DAY_COUNT];
+		if(longestStart == -1 || longestEnd == -1) {
+			return finalArray;
+		}
 		for(int i = longestStart;i<=longestEnd;i++) {
 			finalArray[i] = true;
 		}
@@ -307,8 +309,10 @@ public class Client implements Comparable<Client>{
 	 *
 	 * @param item the item
 	 */
-	public void bookItem(Item item){
+	public void bookItem(Item item, int actualPrice){
 		Item remove = null;
+		item.setActualPrice(actualPrice);
+		System.out.println("called bookItem");
 		for(Item tmpItem : items) {
 			if(item.equals(tmpItem)) {
 				remove = tmpItem;

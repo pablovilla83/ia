@@ -3,6 +3,8 @@
  */
 package com.teamtaco;
 
+import se.sics.tac.aw.TACAgent;
+
 import com.teamtaco.util.EventType;
 
 /**
@@ -48,5 +50,9 @@ public class EventItem extends Item {
 			return true;
 		}
 		return false;
+	}
+	@Override
+	public int getTacCategory() {
+		return TACAgent.CAT_ENTERTAINMENT;
 	}
 }

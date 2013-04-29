@@ -35,4 +35,6 @@ public abstract class Item {
 	public abstract boolean isMandatory();
 	
 	public abstract boolean equals(Object obj);
+	
+	public abstract int getTacCategory();
 }
