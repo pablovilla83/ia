@@ -78,6 +78,18 @@ public class Crapgent extends AgentImpl {
 		}
 		if (TACAgent.getAuctionType(auction) == type
 				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
+			System.out.println("I am checking the max price");
+			if (item.getMaxPrice() >= prices[auction]){
+				//TODO: run setAllocation method here
+				Bid bid = new Bid(auction);
+				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
+				System.out.println("submitting bid with alloc="
+						+ agent.getAllocation(auction) + " own="
+						+ agent.getOwn(auction));
+				agent.submitBid(bid);
+				System.out.println("I bid " + bid.getBidString());
+				//client.bookItem(item);
+			}
 			// if the MaxPrice is feasible continue to bid
 		}
 	}
@@ -91,8 +103,6 @@ public class Crapgent extends AgentImpl {
 		}
 		if (TACAgent.getAuctionType(auction) == type
 				&& TACAgent.getAuctionDay(auction) == ((FlightItem) item).getDay()) {
-			System.out.println("I am checking the max price");
-			System.out.println(item.getMaxPrice());
 			// if the MaxPrice is feasible continue to bid
 			if (item.getMaxPrice() >= prices[auction]) {
 				int alloc = agent.getAllocation(auction);
@@ -198,13 +208,24 @@ public class Crapgent extends AgentImpl {
 	    for (int i = 0; i < 8; i++) {
 	      int inFlight = agent.getClientPreference(i, TACAgent.ARRIVAL);
 	      int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);   
-		  
+		  int type;
+		  //Allocation of flights
 	      int auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
 		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
 		  auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
 		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-	    
-	    }
+		  //Allocation of hotels
+		  int hotelValue = agent.getClientPreference(i, TACAgent.HOTEL_VALUE);
+		  if(hotelValue > 100){ 
+			  type = TACAgent.TYPE_GOOD_HOTEL;
+		  }else{
+			  type = TACAgent.TYPE_CHEAP_HOTEL;
+		  }
+			  for (int d = inFlight; d < outFlight; d++) {
+				  auction = agent.getAuctionFor(TACAgent.CAT_HOTEL, type, d);	
+				  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+			  }
+		}
 	}
 	/*
 	 * (non-Javadoc)
@@ -229,10 +250,23 @@ public class Crapgent extends AgentImpl {
 		//check if we placed a bid for the auction that closed
 		if (agent.getAllocation(auction)>0){
 			if(agent.getOwn(auction)>0){
-				//We won - Call the bookItem method
-				TACAgent.getAuctionCategory(auction);
+				//We won - Call the bookItem method	
+				if (TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL)
 				for (Client client: clients){
-					//client.
+					List<Item> listItems = new ArrayList<Item>();
+					listItems = client.whatToBuyNext();
+					int type =0;
+					for(Item item : listItems){
+						if (((HotelItem) item).getType()==HotelTypes.GOOD){
+							type = 1;
+						}
+						if(item instanceof HotelItem && 
+								TACAgent.getAuctionDay(auction)==((HotelItem) item).getDay() &&
+								TACAgent.getAuctionType(auction)==type){
+							client.auctionClosed((HotelItem)item);
+						}
+									
+						}
 				}
 			}
 			else{

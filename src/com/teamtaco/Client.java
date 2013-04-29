@@ -271,7 +271,7 @@ public class Client implements Comparable<Client>{
 	public List<Item> whatToBuyNext(){
 		updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
-		boolean inFlightReady = true;
+		boolean inFlightReady = false;
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				unsatisfiedItems.add(item);
@@ -324,7 +324,11 @@ public class Client implements Comparable<Client>{
 	 * @param item
 	 */
 	public void auctionClosed(HotelItem item) {
+		System.out.println("I know that this item has closed "+ item.getType() + " "+item.getDay());
 		closedHotelAuctions.add(item);
+		for(HotelItem hotel : closedHotelAuctions){
+			System.out.println(hotel.getDay() + " " + hotel.getType());
+		}
 	}
 
 	/**
