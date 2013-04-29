@@ -272,7 +272,7 @@ public class Crapgent extends AgentImpl {
 			if(hotel.getType() == HotelTypes.GOOD)
 				budget += c.getHotelBonus();
 			
-			budget /= (c.getActualDepartureDay()-c.getActualArrivalDay());
+			budget /= (c.getDepartureDay()-c.getArrivalDay());
 			return budget;
 		}
 		
@@ -297,8 +297,8 @@ public class Crapgent extends AgentImpl {
 			if(flight.getType() == FlightType.IN){
 				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
 				budget -= prices[auction];
-				if(flight.getDay() != c.getActualArrivalDay()) {
-					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualArrivalDay()));
+				if(flight.getDay() != c.getInitialArrivalDay()) {
+					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialArrivalDay()));
 					budget -= travelPenalty;
 				}
 				return budget;
@@ -307,8 +307,8 @@ public class Crapgent extends AgentImpl {
 			else {
 				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, flight.getDay());
 				budget -= prices[auction];
-				if (flight.getDay() != c.getActualDepartureDay()){
-					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getActualDepartureDay()));
+				if (flight.getDay() != c.getInitialDepartureDay()){
+					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialDepartureDay()));
 					budget -= travelPenalty;
 				}
 				return budget;

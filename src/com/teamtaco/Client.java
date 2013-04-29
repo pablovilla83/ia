@@ -28,7 +28,9 @@ public class Client implements Comparable<Client>{
 
 	private int id;
 	private int arrivalDay;
+	private int initialArrivalDay;
 	private int departureDay;
+	private int initialDepartureDay;
 	private int hotelBonus;
 
 	private int e1Bonus = 0;
@@ -61,8 +63,10 @@ public class Client implements Comparable<Client>{
 	public Client(int id, int arrivalDay, int departureDay, int hotelBonus, int e1Bonus, int e2Bonus, int e3Bonus){
 		this.setId(id);
 		this.arrivalDay = arrivalDay;
+		initialArrivalDay = arrivalDay;
 		this.hotelBonus = hotelBonus;
 		this.departureDay = departureDay;
+		this.initialDepartureDay = departureDay;
 		this.e1Bonus = e1Bonus;
 		this.e2Bonus = e2Bonus;
 		this.e3Bonus = e3Bonus;
@@ -267,24 +271,29 @@ public class Client implements Comparable<Client>{
 	public List<Item> whatToBuyNext(){
 		updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
+		boolean inFlightReady = true;
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				unsatisfiedItems.add(item);
+			} else if (item instanceof HotelItem && item.isSatisfied() && ((HotelItem)item).getDay() == arrivalDay) {
+				inFlightReady = true;
 			}
-			// I know this is wrong, just trying something
-			else if(item instanceof FlightItem && !item.isSatisfied()){unsatisfiedItems.add(item);}
 		}
 		
 		// make sure hotels are bought first - if there's still a hotel to be bough, buy this first!
-		// TODO probably already allow to buy inflight when hotel for first day is already booked?
-		
+		boolean add = unsatisfiedItems.isEmpty();
 		
 		// TODO allow to buy events for the days that are already booked?
-		if(unsatisfiedItems.isEmpty()) {
-			for(Item item : items) {
-				if(!item.isSatisfied()) {
-					unsatisfiedItems.add(item);
-				}
+		for(Item item : items) {
+			if(!item.isSatisfied() && add) {
+				unsatisfiedItems.add(item);
+			} 
+			// add inflight as soon as the hotel for the first day is booked
+			else if (item instanceof FlightItem 
+					&& ! item.isSatisfied() 
+					&& inFlightReady 
+					&& ((FlightItem)item).getType() == FlightType.IN
+					&& !add) {
 			}
 		}
 		//System.out.println(createItemListString(unsatisfiedItems));
@@ -410,40 +419,12 @@ public class Client implements Comparable<Client>{
 		}
 	}
 	
-	public int getActualArrivalDay() {
-		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
-		for(Item item : items) {
-			if(item instanceof HotelItem) {
-				allocatedHotelDays[((HotelItem)item).getDay()] = true;
-			}
-		}
-		
-		int firstDay = -1;
-		for(int i = 0;i<allocatedHotelDays.length;i++) {
-			if(allocatedHotelDays[i]) {
-				if(firstDay == -1) {
-					firstDay = i;
-				}
-			}
-		}
-		return firstDay;
+	public int getInitialArrivalDay() {
+		return initialArrivalDay;
 	}
 	
-	public int getActualDepartureDay() {
-		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
-		for(Item item : items) {
-			if(item instanceof HotelItem) {
-				allocatedHotelDays[((HotelItem)item).getDay()] = true;
-			}
-		}
-		
-		int lastDay = -1;
-		for(int i = 0;i<allocatedHotelDays.length;i++) {
-			if(allocatedHotelDays[i]) {
-				lastDay = i;
-			}
-		}
-		return lastDay;
+	public int getInitialDepartureDay() {
+		return initialDepartureDay;
 	}
 	
 	public int getArrivalDay() {
@@ -452,6 +433,7 @@ public class Client implements Comparable<Client>{
 
 	public void setArrivalDay(int arrivalDay) {
 		this.arrivalDay = arrivalDay;
+		this.initialArrivalDay = arrivalDay;
 	}
 
 	public int getDepartureDay() {
@@ -460,6 +442,7 @@ public class Client implements Comparable<Client>{
 
 	public void setDepartureDay(int departureDay) {
 		this.departureDay = departureDay;
+		this.initialDepartureDay = departureDay;
 	}
 
 	public int getHotelBonus() {
