@@ -55,6 +55,9 @@ public class Crapgent extends AgentImpl {
 		// here comes update of bids
 		int auction = quote.getAuction();
 		prices[auction] = quote.getAskPrice();
+//		if(TACAgent.getAuctionCategory(auction)==TACAgent.CAT_FLIGHT) {
+//			System.out.println("quote update for flights");
+//		}
 		//check if the quote that got updated is on the whatToBuyNext list...
 		for (Client client: clients){
 			List<Item> listItems = new ArrayList<Item>();
@@ -321,12 +324,16 @@ public class Crapgent extends AgentImpl {
 				budget += c.getHotelBonus();
 			
 			budget /= (c.unallocatedHotelDays());
+			// days in the middle of the journey are of higher importance
+			// formula: 0.75 +(-0.25*(x-arrivalDay)*(x-departureDay))^0.5
+			double dayPosFactor =Math.pow(-0.25 * (hotel.getDay()-c.getArrivalDay()+0.01)*(hotel.getDay()-c.getDepartureDay()-0.01), 0.5);
+			budget *=(0.75+dayPosFactor);
+					
 			// because we won't always pay our max bid we can add a threshold!
-			budget *= 1.25;
+			budget *= 1.1;
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
-				System.out.println("is in between allocated days");
-				budget *=1.75;
+				budget *=1.25;
 			}
 			return budget;
 		}
@@ -351,11 +358,16 @@ public class Crapgent extends AgentImpl {
 			FlightItem flight = (FlightItem) item;
 			if(flight.getType() == FlightType.IN){
 				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
-				budget -= prices[auction];
-				if(flight.getDay() != c.getInitialArrivalDay()) {
-					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialArrivalDay()));
-					budget -= travelPenalty;
-				}
+				budget -= c.getCurrentExpenses();
+				budget/=2;
+//				if(flight.getDay() != c.getInitialArrivalDay()) {
+//					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialArrivalDay()));
+//					budget -= travelPenalty;
+//				}
+				System.out.println(agent.getGameTimeLeft());
+				float time = agent.getGameTimeLeft()/1000-30;
+				time = time < 1? 1 : time;
+				budget*= (1+1/time);
 				return budget;
 			}
 			
