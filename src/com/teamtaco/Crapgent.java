@@ -102,9 +102,9 @@ public class Crapgent extends AgentImpl {
 		if (TACAgent.getAuctionType(auction) == type
 				&& TACAgent.getAuctionDay(auction) == ((FlightItem) item).getDay()) {
 			// if the MaxPrice is feasible continue to bid
-//			if (item.getMaxPrice() >= prices[auction]) {
+			if (item.getMaxPrice() >= prices[auction]) {
 				Bid bid = new Bid(auction);
-				bid.addBidPoint(1, 1000);
+				bid.addBidPoint(1, item.getMaxPrice());
 				synchronized (item) {
 					if(!item.isSatisfied()) {
 						agent.setAllocation(auction, agent.getAllocation(auction)+1);
@@ -112,7 +112,7 @@ public class Crapgent extends AgentImpl {
 						client.bookItem(item,(int)prices[auction]);
 					}
 				}
-//			}
+			}
 		}
 	}
 	
@@ -346,7 +346,6 @@ public class Crapgent extends AgentImpl {
 	
 	public float calculateMaxPrice(Client c, Item item){
 		float budget = 1000;
-		int auction;
 		int fixedFee = 600;
 		
 		if (item instanceof HotelItem){
@@ -388,30 +387,16 @@ public class Crapgent extends AgentImpl {
 			
 		}
 		else{
-			FlightItem flight = (FlightItem) item;
-			if(flight.getType() == FlightType.IN){
-				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_INFLIGHT, flight.getDay());
-				budget -= c.getCurrentExpenses();
-				budget/=2;
-//				if(flight.getDay() != c.getInitialArrivalDay()) {
-//					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialArrivalDay()));
-//					budget -= travelPenalty;
-//				}
-				float time = agent.getGameTimeLeft()/1000-30;
-				time = time < 1? 1 : time;
-				budget*= (1+1/time);
-				return budget;
-			}
-			
-			else {
-				auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, flight.getDay());
-				budget -= prices[auction];
-				if (flight.getDay() != c.getInitialDepartureDay()){
-					float travelPenalty = 100 * (Math.abs(flight.getDay() - c.getInitialDepartureDay()));
-					budget -= travelPenalty;
-				}
-				return budget;
-			}
+			// increase the budget every 9.9 game-seconds
+			float time = agent.getGameTimeLeft()/9900-4;
+			time = time < 1? 1 : time;
+			// start at a really low price for the flights
+			budget = 250;
+			// increase the budget slowly until it reaches 800 (250*3.2) in the last 30 seconds
+			budget*= (1+2.2/Math.pow(time, 0.6));
+			System.out.println( budget + " " + time);
+			// at the end of the game just buy the flights!
+			return budget;
 		}
 	}
 }
