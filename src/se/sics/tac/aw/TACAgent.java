@@ -780,6 +780,7 @@ public class TACAgent implements Task, TACMessageReceiver {
     printOwn("museum", MIN_ENTERTAINMENT + 8, MIN_ENTERTAINMENT + 12, sb);
     sb.append(EOL);
     log.fine(sb.toString());
+    System.out.println(sb.toString()); 
   }
 
   private void printOwn(String type, int startAuction, int endAuction,
