@@ -117,7 +117,6 @@ public class Crapgent extends AgentImpl {
 	}
 	
 	private void manageEventBid(Client client, EventItem item, int auction) {
-
 //		int preference=0;
 //		if(client.getE1Bonus() > client.getE2Bonus())
 //			preference = (client.getE1Bonus() > client.getE3Bonus()) ? TACAgent.E1 : TACAgent.E3;
@@ -126,7 +125,7 @@ public class Crapgent extends AgentImpl {
 				
 //		if(item.getType().getBonusConstant()==preference){
 		
-		if (client.getBonus(item.getType().getBonusConstant()) > 80){
+		if (client.getBonus(item.getType().getBonusConstant()) > 100){
 			//check if we already own a ticket...
 			if (item.getPossibleDays()[TACAgent.getAuctionDay(auction)]){
 				if (tmpEvent[auction] < agent.getOwn(auction)) {
@@ -141,7 +140,7 @@ public class Crapgent extends AgentImpl {
 					// TODO: if my asking prince is > utility sell for asking price, else sell for utility+1
 					if(evaluateBonusEvent(client, item, auction)){
 						Bid bid = new Bid(auction);
-						bid.addBidPoint(agent.getAllocation(auction)+1, item.getMaxPrice());
+						bid.addBidPoint(agent.getAllocation(auction)+1, prices[auction]);
 						agent.submitBid(bid);
 						agent.setAllocation(auction, agent.getAllocation(auction)+1);
 						client.bookItem(item, item.getMaxPrice());
@@ -206,7 +205,14 @@ public class Crapgent extends AgentImpl {
 			     + bid.getAuction() + " state="
 			     + bid.getProcessingStateAsString());
 		    log.fine("       Hash: " + bid.getBidHash());
-		if(bid.getProcessingState()==Bid.VALID){
+		if(bid.getProcessingState()==Bid.TRANSACTED){ 
+			int auction = bid.getAuction();
+			if (TACAgent.getAuctionCategory(auction)==TACAgent.CAT_ENTERTAINMENT){
+				int alloc = bid.getQuantity();
+				if (alloc<0){
+					agent.setAllocation(auction, agent.getAllocation(auction)-alloc);
+				}
+			}
 			//Check if the bid was successfully submitted and mark the item as submitted? 
 		}
 	}
