@@ -113,7 +113,7 @@ public class Crapgent extends AgentImpl {
 	}
 	
 	private void manageEventBid(Client client, EventItem item, int auction) {
-		if (TACAgent.getAuctionType(auction) == item.getType().getBonusConstant()
+/*		if (TACAgent.getAuctionType(auction) == item.getType().getBonusConstant()
 				&& item.getPossibleDays()[TACAgent.getAuctionDay(auction)]) {
 			if(client.getBonus(item.getType().getBonusConstant())> agent.getQuote(auction).getAskPrice()) {
 				// place bid
@@ -124,7 +124,52 @@ public class Crapgent extends AgentImpl {
 				client.bookItem(item, (int)agent.getQuote(auction).getAskPrice());
 			}
 		}
+*/
+		int preference=0;
+/*		if((client.getE1Bonus() > client.getE2Bonus()) && (client.getE1Bonus() > client.getE3Bonus()))
+			preference = 1;
+		if((client.getE2Bonus() > client.getE1Bonus()) && (client.getE2Bonus() > client.getE3Bonus()))
+			preference = 2;
+		if((client.getE3Bonus() > client.getE1Bonus()) && (client.getE3Bonus() > client.getE2Bonus()))
+			preference = 3;
+*/
+		// this way should be faster
+		if(client.getE1Bonus() > client.getE2Bonus())
+			preference = (client.getE1Bonus() > client.getE3Bonus()) ? 1 : 3;
+		else
+			preference = (client.getE2Bonus() > client.getE3Bonus()) ? 2 : 3 ;
+		
+		
+		System.out.println(client.getId()+"preference" + preference +" item.getType().getBonusConstant():"+item.getType().getBonusConstant()+ " " +agent.getAllocation(auction) +" <- getallocation , own -> "+ agent.getOwn(auction));
+		
+		System.out.println("item get type: "+item.getType());
+		
+		// don't understand item.getType().getBonusConstant() return 3 4 5 instead of 1 2 3 ????
+		if(item.getType().getBonusConstant()==preference+2){
+			//check if we already own a ticket...
+			if (agent.getAllocation(auction) < agent.getOwn(auction)) {
+				//mark the item as satisfied and update allocation
+		//		int price = (int)prices[auction];
+				int price = 0;
+				client.bookItem(item, price);
+				agent.setAllocation(auction, agent.getAllocation(auction) + 1);
+				calculateMaxPrice(client, item);
+			}
+			else{
+				//let's try to buy a ticket for that day...
+				if (item.getMaxPrice() > 200){
+					Bid bid = new Bid(auction);
+					bid.addBidPoint(agent.getAllocation(auction), 201);
+					agent.submitBid(bid);
+				}
+			}
+		}
+		else{
+			// satisfy another client
+		}
 	}
+
+	
 	
 	@Override
 	public void quoteUpdated(int auctionCategory) {
