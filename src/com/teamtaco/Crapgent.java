@@ -4,12 +4,10 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedSet;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Logger;
 
@@ -75,22 +73,18 @@ public class Crapgent extends AgentImpl {
 	}
 	
 	private void manageHotelBid(Client client, HotelItem item, int auction) {
-		int type;
-		
-		if (item.getType() == HotelType.GOOD || (item.getType() == null && client.getHotelBonus()>100) ) {
-			type = TACAgent.TYPE_GOOD_HOTEL;
-		} else {
-			type = TACAgent.TYPE_CHEAP_HOTEL;
+		// allocate initial type if not done yet
+		if(item.getType() == null) {
+			throw new RuntimeException("hotel type not set!");
 		}
-		if (TACAgent.getAuctionType(auction) == type
+
+		if (TACAgent.getAuctionType(auction) == item.getType().getTacType()
 				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
 			if (item.getMaxPrice() >= prices[auction]){
-				//TODO: run setAllocation method here
 				Bid bid = new Bid(auction);
 				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
 				agent.submitBid(bid);
 			}
-			// if the MaxPrice is feasible continue to bid
 		}
 	}
 	
@@ -179,10 +173,9 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void gameStarted() {
-		
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
-		calculateAllocation();
+		float avgHotelBonus = 0;
 		for(int i = 0;i<8;i++){
 			Client c = new Client(i);
 			c.setE1Bonus(agent.getClientPreference(i, TACAgent.E1));
@@ -191,36 +184,32 @@ public class Crapgent extends AgentImpl {
 			c.setArrivalDay(agent.getClientPreference(i, TACAgent.ARRIVAL));
 			c.setDepartureDay(agent.getClientPreference(i, TACAgent.DEPARTURE));
 			c.setHotelBonus(agent.getClientPreference(i, TACAgent.HOTEL_VALUE));
-			c.initializeItemList();
+			avgHotelBonus += c.getHotelBonus();
 			System.out.println(c.toString());
 			clients.add(c);
-			//TODO: calculateMaxPrice(c);
 		}
+		
+		// learn the hotelBonus from past games (how much more expensive are good hotels
+		avgHotelBonus /= 8;
+		for(Client client : clients) {
+			if(client.getHotelBonus() > avgHotelBonus) {
+				client.setHotelType(HotelType.GOOD);
+			} else {
+				client.setHotelType(HotelType.CHEAP);
+			}
+			client.initializeItemList();
+		}
+		calculateAllocation();
 		
 	}
 
 	private void calculateAllocation() {
-	    for (int i = 0; i < 8; i++) {
-	      int inFlight = agent.getClientPreference(i, TACAgent.ARRIVAL);
-	      int outFlight = agent.getClientPreference(i, TACAgent.DEPARTURE);   
-		  int type;
-		  int auction;
-		  //Allocation of flights
-//	      int auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT,TACAgent.TYPE_INFLIGHT, inFlight);
-//		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-//		  auction = TACAgent.getAuctionFor(TACAgent.CAT_FLIGHT, TACAgent.TYPE_OUTFLIGHT, outFlight);
-//		  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-		  //Allocation of hotels
-		  int hotelValue = agent.getClientPreference(i, TACAgent.HOTEL_VALUE);
-		  if(hotelValue > 100){ 
-			  type = TACAgent.TYPE_GOOD_HOTEL;
-		  }else{
-			  type = TACAgent.TYPE_CHEAP_HOTEL;
-		  }
-			  for (int d = inFlight; d < outFlight; d++) {
-				  auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type, d);	
-				  agent.setAllocation(auction, agent.getAllocation(auction) + 1);
-			  }
+		for(Client client : clients) {
+			for(int i = client.getArrivalDay(); i< client.getDepartureDay();i++) {
+				int type=client.getHotelType().getTacType();
+				int auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type, i);
+				agent.setAllocation(auction, agent.getAllocation(auction)+1);
+			}
 		}
 	}
 	/*
@@ -242,53 +231,28 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void auctionClosed(int auction) {
-		log.fine("*** Auction " + auction + " closed!");
-		//check if we placed a bid for the auction that closed
-		if (agent.getAllocation(auction)>0){
+		// notification only necessary for Hotels
+		if(TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL) {
 			int quantity = agent.getOwn(auction);
-			int category = TACAgent.getAuctionCategory(auction);
-			int type = TACAgent.getAuctionType(auction);
-			int day = TACAgent.getAuctionDay(auction);
-			// first collect clients that need this item
-			Map<Client, Item> clientMap = new TreeMap<Client, Item>(new Comparator<Client>() {
-
+			
+			// try to finish almost finished clients first
+			ArrayList<Client> clientList = new ArrayList<Client>(clients);
+			Collections.sort(clientList, new Comparator<Client>() {
 				@Override
 				public int compare(Client o1, Client o2) {
 					return((Integer)o1.unallocatedHotelDays()).compareTo(o2.unallocatedHotelDays());
 				}
 			});
-			for(Client client : clients) {
-				for(Item item : client.whatToBuyNext()) {
-					if(item.getTacCategory() == TACAgent.getAuctionCategory(auction)){
-						// book hotels
-						if(item instanceof HotelItem) {
-							HotelItem hotelItem = (HotelItem)item;
-							if(hotelItem.getDay() == day
-									&& (hotelItem.getType() == null || hotelItem.getType().getTacType() == type)) {
-								clientMap.put(client, hotelItem);
-							}
-						}
-					}
-				}
-				// notify all clients that auction closed
-				if(category == TACAgent.CAT_HOTEL) {
-					HotelItem item = new HotelItem(day,HotelType.getTypeForConstant(type));
-					client.auctionClosed(item);
-				}
-			}
-			for(Entry<Client, Item> entry : clientMap.entrySet()) {
-				if(quantity > 0) {
-					entry.getKey().bookItem(entry.getValue(), (int)agent.getQuote(auction).getAskPrice());
+			HotelItem closedHotel = new HotelItem(TACAgent.getAuctionDay(auction), 
+					HotelType.getTypeForConstant(TACAgent.getAuctionType(auction)));
+			for(Client client : clientList) {
+				if(quantity > 0 
+						&& client.bookItem(closedHotel, (int)agent.getQuote(auction).getAskPrice())) {
 					quantity--;
 				}
+				client.auctionClosed(closedHotel);
 			}
-			for(Client client : clients) {
-				if(type == TACAgent.CAT_HOTEL) {
-					HotelItem item = new HotelItem(day,HotelType.getTypeForConstant(type));
-					client.auctionClosed(item);
-				}
-			}
-		} 
+		}
 	}
 	
 	/**

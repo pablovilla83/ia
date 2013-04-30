@@ -4,10 +4,8 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import se.sics.tac.aw.TACAgent;
@@ -35,22 +33,9 @@ public class Client implements Comparable<Client>{
 	private int e1Bonus = 0;
 	private int e2Bonus = 0;
 	private int e3Bonus = 0;
+	
+	private HotelType hotelType;
 
-	private Map<String, Float> budget = new HashMap<String, Float>();
-
-	public void addToBudget(String categoryTypeDay, float price){
-		if (this.budget.containsKey(categoryTypeDay)) {
-			price += this.budget.get(categoryTypeDay);
-		}
-
-		this.budget.put(categoryTypeDay, price);
-	}
-
-	/**
-	 * get the current bubget available
-	 * ctd = category-type-day
-	 * @return float
-	 */
 
 	private List<Item> items = new ArrayList<Item>();
 	private Set<HotelItem> closedHotelAuctions = new HashSet<HotelItem>();
@@ -79,6 +64,9 @@ public class Client implements Comparable<Client>{
 		for(int i = arrivalDay;i<departureDay;i++) {
 			HotelItem hotel = new HotelItem();
 			hotel.setDay(i);
+			if(hotelType != null) {
+				hotel.setType(hotelType);
+			}
 			items.add(hotel);
 			possibleDays[i] = true;
 		}
@@ -135,7 +123,6 @@ public class Client implements Comparable<Client>{
 		boolean[] possibleAllocations = new boolean[DAY_COUNT];
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
 		boolean[] occupiedDays = new boolean[DAY_COUNT];
-		HotelType allocatedHotelType = null;
 		// look for constraints
 		for(Item item : items){
 			if(item instanceof EventItem && item.isSatisfied()){
@@ -143,41 +130,41 @@ public class Client implements Comparable<Client>{
 			}
 			else if (item instanceof HotelItem && item.isSatisfied()) {
 				allocatedHotelDays[((HotelItem)item).getDay()] = true;
-				if(allocatedHotelType != null && allocatedHotelType != ((HotelItem)item).getType()) {
+				if(hotelType != null && hotelType != ((HotelItem)item).getType()) {
 					// Throw exception or whatever
 					System.err.println("Different hotel types");
 				}
-				allocatedHotelType = ((HotelItem)item).getType();
 			} 
 		}
 		
 		// check which hotels are still available
-		if(allocatedHotelType != null) {
-			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, allocatedHotelType);
+		if(hotelType != null) {
+			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, hotelType);
 		} else {
-			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelType.CHEAP);
-			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelType.GOOD);
-			boolean[] together = new boolean[DAY_COUNT];
-			int cheapDayCount = 0;
-			int goodDayCount = 0;
-			for(int i = 0;i< DAY_COUNT;i++) {
-				if(cheapStay[i]) {
-					cheapDayCount++;
-				}
-				if(goodStay[i]) {
-					goodDayCount++;
-				}
-				together[i] = cheapStay[i] || goodStay[i];
-			}
-			if(cheapDayCount == goodDayCount) {
-				possibleAllocations = together;
-			} else if (cheapDayCount<goodDayCount) {
-				possibleAllocations = goodStay;
-				allocatedHotelType = HotelType.GOOD;
-			} else {
-				possibleAllocations = cheapStay;
-				allocatedHotelType = HotelType.CHEAP;
-			}
+//			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelType.CHEAP);
+//			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelType.GOOD);
+//			boolean[] together = new boolean[DAY_COUNT];
+//			int cheapDayCount = 0;
+//			int goodDayCount = 0;
+//			for(int i = 0;i< DAY_COUNT;i++) {
+//				if(cheapStay[i]) {
+//					cheapDayCount++;
+//				}
+//				if(goodStay[i]) {
+//					goodDayCount++;
+//				}
+//				together[i] = cheapStay[i] || goodStay[i];
+//			}
+//			if(cheapDayCount == goodDayCount) {
+//				possibleAllocations = together;
+//			} else if (cheapDayCount<goodDayCount) {
+//				possibleAllocations = goodStay;
+//				hotelType = HotelType.GOOD;
+//			} else {
+//				possibleAllocations = cheapStay;
+//				hotelType = HotelType.CHEAP;
+//			}
+			throw new RuntimeException();
 		}
 		
 		// find out first possible day (either already booked or still possible)
@@ -201,7 +188,7 @@ public class Client implements Comparable<Client>{
 		
 		// look up which days are still free for activities
 		boolean[] unoccupiedDays = new boolean[DAY_COUNT];
-		for(int i = 0; i< occupiedDays.length; i++) {
+		for(int i = arrivalDay; i< departureDay; i++) {
 			unoccupiedDays[i] = !occupiedDays[i];
 		}
 		List<Item> itemsToRemove = new ArrayList<Item>();
@@ -214,15 +201,29 @@ public class Client implements Comparable<Client>{
 				if(!possibleAllocations[((HotelItem)item).getDay()]) {
 					itemsToRemove.add(item);
 				}
-				if(allocatedHotelType != null) {
-					((HotelItem)item).setType(allocatedHotelType);
+				if(hotelType != null) {
+					((HotelItem)item).setType(hotelType);
 				}
 			}
 			// update flight-days
 			if(!item.isSatisfied() && item instanceof FlightItem) {
-				switch(((FlightItem)item).getType()) {
-					case IN: ((FlightItem)item).setDay(arrivalDay);break;
-					case OUT: ((FlightItem)item).setDay(departureDay);break;
+				switch (((FlightItem) item).getType()) {
+				case IN:
+					if (((FlightItem) item).getDay() != arrivalDay) {
+						System.out.println("set inflight from"
+								+ ((FlightItem) item).getDay() + " to "
+								+ arrivalDay);
+						((FlightItem) item).setDay(arrivalDay);
+					}
+					break;
+				case OUT:
+					if (((FlightItem) item).getDay() != departureDay) {
+						System.out.println("set outflight from"
+								+ ((FlightItem) item).getDay() + " to "
+								+ departureDay);
+						((FlightItem) item).setDay(departureDay);
+					}
+					break;
 				}
 			}
 		}
@@ -235,6 +236,22 @@ public class Client implements Comparable<Client>{
 		}
 		
 		items.removeAll(itemsToRemove);
+	}
+	
+	public void setHotelType(HotelType type) {
+		for(Item item : items) {
+			if(item instanceof HotelItem && !item.isSatisfied()) {
+				((HotelItem)item).setType(type);
+			} else if(item instanceof HotelItem && item.isSatisfied() && ((HotelItem)item).getType() != type) {
+				throw new RuntimeException("distinct types");
+			}
+		}
+		this.hotelType = type;
+		updateItemList();
+	}
+	
+	public HotelType getHotelType() {
+		return this.hotelType;
 	}
 	
 	/**
@@ -306,18 +323,19 @@ public class Client implements Comparable<Client>{
 	 * @return
 	 */
 	public List<Item> whatToBuyNext(){
-		updateItemList();
+		//updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
 		boolean inFlightReady = false;
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				unsatisfiedItems.add(item);
-			} else if (item instanceof HotelItem && item.isSatisfied() && ((HotelItem)item).getDay() == arrivalDay) {
+			} 
+			if (item instanceof HotelItem && item.isSatisfied() && ((HotelItem)item).getDay() == arrivalDay) {
 				inFlightReady = true;
 			}
 		}
 		
-		// make sure hotels are bought first - if there's still a hotel to be bough, buy this first!
+		// make sure hotels are bought first - if there's still a hotel to be bought, buy this first!
 		boolean add = unsatisfiedItems.isEmpty();
 		
 		// TODO allow to buy events for the days that are already booked?
@@ -327,34 +345,39 @@ public class Client implements Comparable<Client>{
 			} 
 			// add inflight as soon as the hotel for the first day is booked
 			else if (item instanceof FlightItem 
-					&& ! item.isSatisfied() 
+					&& !item.isSatisfied() 
 					&& inFlightReady 
 					&& ((FlightItem)item).getType() == FlightType.IN
 					&& !add) {
 				unsatisfiedItems.add(item);
 			}
 		}
-		//System.out.println(createItemListString(unsatisfiedItems));
+//		System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
-
+	
 	/**
 	 * marks an item was satisfied (auction won)
 	 *
 	 * @param item the item
 	 */
-	public void bookItem(Item item, int actualPrice){
+	public boolean bookItem(Item item, int actualPrice){
 		item.setActualPrice(actualPrice);
+		boolean hit = false;
 		for(Item tmpItem : items) {
 			if(item.equals(tmpItem)) {
+				hit = true;
 				tmpItem.setActualPrice(actualPrice);
 				if(item instanceof EventItem && tmpItem instanceof EventItem) {
 					((EventItem)tmpItem).setBookedDay(((EventItem)item).getBookedDay());
 				}
 			}
 		}
-		updateItemList();
+		if(hit) {
+			updateItemList();
+		}
+		return hit;
 	}
 	
 	/**
