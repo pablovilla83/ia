@@ -21,7 +21,7 @@ import com.teamtaco.util.HotelType;
  */
 public class Client implements Comparable<Client>{
 
-	private static final int DAY_COUNT = 6;
+	public static final int DAY_COUNT = 6;
 
 	private int id;
 	private int arrivalDay;
@@ -114,13 +114,15 @@ public class Client implements Comparable<Client>{
 		}
 		return (hotelItem.getDay() >firstAllocated && hotelItem.getDay() < lastAllocated);
 	}
-
+	
 	/**
-	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
-	 * @throws Exception 
+	 * collects info about current allocations
+	 * 
+	 * @return {@link AllocationInfo}
 	 */
-	private void updateItemList(){
-		boolean[] possibleAllocations = new boolean[DAY_COUNT];
+	private AllocationInfo getAllocationInfo() {
+		AllocationInfo info = new AllocationInfo();
+		
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
 		boolean[] occupiedDays = new boolean[DAY_COUNT];
 		// look for constraints
@@ -137,10 +139,84 @@ public class Client implements Comparable<Client>{
 			} 
 		}
 		
-		// check which hotels are still available
-		if(hotelType != null) {
-			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, hotelType);
+		boolean[] overallStay = new boolean[DAY_COUNT];
+		// calculate overall stay (booked + possible) and unbooked but possible stay
+		for(int i = arrivalDay; i< departureDay;i++) {
+			if(!allocatedHotelDays[i]) {
+				boolean possible = !closedHotelAuctions.contains(new HotelItem(i,hotelType));
+				overallStay[i] = possible;
+			} else {
+				overallStay[i] = true;
+			}
+		}
+		int[] longestPossibleStay = longestIntervalInArray(overallStay);
+		int[] longestBookedStay = longestIntervalInArray(allocatedHotelDays);
+		
+		
+		// no hotels available anymore
+		if(longestPossibleStay[0] == -1) {
+			// client fucked up - no satisfaction possible anymore
+			// deactivate by removing all items
+			items.clear();
+			info.setFuckedUp(true);
+			return info;
+		} else if(longestPossibleStay[0] == -2) {
+			// there are several intervals with the same length
+			// no certainty about final interval yet
+			info.setActualArrival(arrivalDay);
+			info.setActualDeparture(departureDay);
 		} else {
+			// check that there is no other interval where longer stays would still be possible
+			int start = 0;
+			int[] interval;
+			boolean certain = true;
+			while((interval = nextIntervalInArray(overallStay, start)) != null) {
+				if(interval[0] != longestPossibleStay[0]) {
+					if(interval[1]-interval[0] >= longestBookedStay[1]-longestBookedStay[0]) {
+						certain = false;
+					}
+				}
+				start = interval[1];
+			}
+			
+			// make sure the current interval cannot be splitted up into bigger parts
+			if(certain && longestBookedStay[1]-longestBookedStay[0]>= (float)(longestPossibleStay[1]-longestPossibleStay[0])/2f) {
+				// it is clear now which interval will be used
+				// days within longestBookedStay can now be allocated
+				info.setActualArrival(longestPossibleStay[0]);
+				info.setActualDeparture(longestPossibleStay[1]);
+				
+				arrivalDay = info.getActualArrival();
+				departureDay = info.getActualDeparture();
+				
+				info.setIntervalCertainty(true);
+				info.setBookedHotels(longestBookedStay[0], longestBookedStay[1]);
+			}
+			
+		}
+		
+		// look up which days are available for activities (booked with certainty and not used by another event)
+		boolean[] unoccupiedDays = new boolean[DAY_COUNT];
+		if(info.isIntervalCertainty() && longestBookedStay[0] >=0 && longestBookedStay[1]>= 0) {
+			for(int i = longestBookedStay[0];i<longestBookedStay[1];i++) {
+				unoccupiedDays[i] = !occupiedDays[i];
+			}
+		}
+		info.setUnbookedDays(unoccupiedDays);
+		
+		return info;
+	}
+
+	/**
+	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
+	 * @throws Exception 
+	 */
+	private void updateItemList(AllocationInfo info){
+		
+		// check which hotels are still available
+//		if(hotelType != null) {
+//			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, hotelType);
+//		} else {
 //			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelType.CHEAP);
 //			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelType.GOOD);
 //			boolean[] together = new boolean[DAY_COUNT];
@@ -164,66 +240,78 @@ public class Client implements Comparable<Client>{
 //				possibleAllocations = cheapStay;
 //				hotelType = HotelType.CHEAP;
 //			}
-			throw new RuntimeException();
-		}
+//			throw new RuntimeException();
+//		}
 		
 		// find out first possible day (either already booked or still possible)
-		int firstDay = -1;
-		int lastDay = -1;
-		for(int i = 0;i<allocatedHotelDays.length;i++) {
-			if(allocatedHotelDays[i] || possibleAllocations[i]) {
-				if(firstDay == -1) {
-					firstDay = i;
-				}
-				lastDay = i;
-			}
-		}
-		if(firstDay == -1 || lastDay == -1) {
-			arrivalDay = 0;
-			departureDay = 0;
-		} else {
-			arrivalDay = firstDay;
-			departureDay = lastDay+1;
-		}
+//		int firstDay = -1;
+//		int lastDay = -1;
+//		for(int i = 0;i<allocatedHotelDays.length;i++) {
+//			if(allocatedHotelDays[i] || possibleAllocations[i]) {
+//				if(firstDay == -1) {
+//					firstDay = i;
+//				}
+//				lastDay = i;
+//			}
+//		}
+//		if(firstDay == -1 || lastDay == -1) {
+//			arrivalDay = 0;
+//			departureDay = 0;
+//		} else {
+//			arrivalDay = firstDay;
+//			departureDay = lastDay+1;
+//		}
 		
-		// look up which days are still free for activities
-		boolean[] unoccupiedDays = new boolean[DAY_COUNT];
-		for(int i = arrivalDay; i< departureDay; i++) {
-			unoccupiedDays[i] = !occupiedDays[i];
-		}
+		
+		
+		// only mark days as possible where a hotel is already booked and will be used
+//		if(allocatedHotelDays[arrivalDay]) {
+//			boolean ended = false;
+//			for(int i = arrivalDay; i< departureDay; i++) {
+//				if(!ended) {
+//					unoccupiedDays[i] = !occupiedDays[i] && allocatedHotelDays[i];
+//					if(!allocatedHotelDays[i]) {
+//						ended = true;
+//					}
+//				}
+//			}
+//		}
 		List<Item> itemsToRemove = new ArrayList<Item>();
 		for(Item item : items) {
-			if(!item.isSatisfied() && item instanceof EventItem) {
-				((EventItem)item).setPossibleDays(unoccupiedDays);
-			}
-			// if an hotel has already be allocated update types of other hotels!
-			if(item instanceof HotelItem && !item.isSatisfied()) {
-				if(!possibleAllocations[((HotelItem)item).getDay()]) {
-					itemsToRemove.add(item);
+			if(!item.isSatisfied()) {
+				if( item instanceof EventItem) {
+					((EventItem)item).setPossibleDays(info.getUnbookedDays());
 				}
-				if(hotelType != null) {
-					((HotelItem)item).setType(hotelType);
+				// if an hotel has already be allocated update types of other hotels!
+				if(item instanceof HotelItem) {
+					int day =((HotelItem)item).getDay(); 
+					if(!(day >= arrivalDay && day < departureDay)) {
+						itemsToRemove.add(item);
+					}
+					if(hotelType != null) {
+						((HotelItem)item).setType(hotelType);
+					}
 				}
-			}
-			// update flight-days
-			if(!item.isSatisfied() && item instanceof FlightItem) {
-				switch (((FlightItem) item).getType()) {
-				case IN:
-					if (((FlightItem) item).getDay() != arrivalDay) {
-						System.out.println("set inflight from"
-								+ ((FlightItem) item).getDay() + " to "
-								+ arrivalDay);
-						((FlightItem) item).setDay(arrivalDay);
+				// update flight-days
+				if(item instanceof FlightItem) {
+					switch (((FlightItem) item).getType()) {
+					case IN:
+						if (((FlightItem) item).getDay() != arrivalDay) {
+							System.out.println("set inflight from"
+									+ ((FlightItem) item).getDay() + " to "
+									+ arrivalDay);
+							((FlightItem) item).setDay(arrivalDay);
+						}
+						break;
+					case OUT:
+						if (((FlightItem) item).getDay() != departureDay) {
+							System.out.println("set outflight from"
+									+ ((FlightItem) item).getDay() + " to "
+									+ departureDay);
+							((FlightItem) item).setDay(departureDay);
+						}
+						break;
 					}
-					break;
-				case OUT:
-					if (((FlightItem) item).getDay() != departureDay) {
-						System.out.println("set outflight from"
-								+ ((FlightItem) item).getDay() + " to "
-								+ departureDay);
-						((FlightItem) item).setDay(departureDay);
-					}
-					break;
 				}
 			}
 		}
@@ -247,7 +335,7 @@ public class Client implements Comparable<Client>{
 			}
 		}
 		this.hotelType = type;
-		updateItemList();
+		updateItemList(getAllocationInfo());
 	}
 	
 	public HotelType getHotelType() {
@@ -263,58 +351,119 @@ public class Client implements Comparable<Client>{
 	 * @param hotelType
 	 * @return
 	 */
-	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelType hotelType ) {
-		boolean[] overallStay = new boolean[DAY_COUNT];
-		boolean[] unbookedStay = new boolean[DAY_COUNT];
-		for(int i = arrivalDay; i< departureDay;i++) {
-			if(!bookedDays[i]) {
-				boolean possible = !closedHotelAuctions.contains(new HotelItem(i,hotelType));
-				overallStay[i] = possible;
-				unbookedStay[i] = possible;
-			} else {
-				overallStay[i] = true;
-			}
-		}
-		
-		int longestStart = -1,longestEnd = -1;
-		int currentStart=-1, currentEnd=-1;
-		boolean isBooked =false;
-		for(int i=arrivalDay;i<departureDay;i++) {
-			if(bookedDays[i]) {
-				isBooked=true;
-			}
-			if(overallStay[i]) {
-				if(currentStart == -1) {
-					currentStart = i;
-				}
+//	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelType hotelType ) {
+//		boolean[] overallStay = new boolean[DAY_COUNT];
+//		boolean[] unbookedStay = new boolean[DAY_COUNT];
+//
+//		// calculate overall stay (booked + possible) and unbooked but possible stay
+//		for(int i = arrivalDay; i< departureDay;i++) {
+//			if(!bookedDays[i]) {
+//				boolean possible = !closedHotelAuctions.contains(new HotelItem(i,hotelType));
+//				overallStay[i] = possible;
+//				unbookedStay[i] = possible;
+//			} else {
+//				overallStay[i] = true;
+//			}
+//		}
+//		
+//		// find longest interval
+//		int longestStart = -1,longestEnd = -1;
+//		int currentStart=-1, currentEnd=-1;
+//		boolean isBooked =false;
+//		for(int i=arrivalDay;i<departureDay;i++) {
+//			if(bookedDays[i]) {
+//				isBooked=true;
+//			}
+//			if(overallStay[i]) {
+//				if(currentStart == -1) {
+//					currentStart = i;
+//				}
+//				currentEnd = i;
+//			} else {
+//				if(currentEnd-currentStart >= longestEnd-longestStart) {
+//					longestEnd = currentEnd;
+//					longestStart = currentStart;
+//				}
+//				if(isBooked) {
+//					boolean[] finalArray = new boolean[DAY_COUNT];
+//					for(int j = currentStart;j<=currentEnd;j++) {
+//						finalArray[j] = true;
+//					}
+//					return finalArray;
+//				}
+//			}
+//		}
+//		if(longestStart == -1 || longestEnd == -1) {
+//			longestStart = currentStart;
+//			longestEnd = currentEnd;
+//		}
+//		boolean[] finalArray = new boolean[DAY_COUNT];
+//		if(longestStart == -1 || longestEnd == -1) {
+//			return finalArray;
+//		}
+//		for(int i = longestStart;i<=longestEnd;i++) {
+//			finalArray[i] = true;
+//		}
+//		return finalArray;
+//		
+//	}
+	
+	/**
+	 * searches for the longest true-interval in the given array
+	 * 
+	 * if there are two or more longest intervals of the same length, an interval of -2 -2 will be returned.
+	 * if there are no intervals, -1 -1 will be returned;
+	 * 
+	 * @param array the array to search in
+	 * @return the interval
+	 */
+	private int[] longestIntervalInArray(boolean[] array) {
+		int[] interval = {-1,-1};
+		int currentStart = -1, currentEnd = -1;
+		boolean undecided = false;
+		for(int i = 0;i<array.length;i++) {
+			if(array[i]) {
+				currentStart = currentStart == -1? i:currentStart;
 				currentEnd = i;
-			} else {
-				if(currentEnd-currentStart >= longestEnd-longestStart) {
-					longestEnd = currentEnd;
-					longestStart = currentStart;
+			}
+			else {
+				currentEnd = i;
+				if(interval[1]-interval[0] == currentEnd - currentStart) {
+					undecided = true;
+				} else if(interval[1] - interval[0] < currentEnd - currentStart && currentStart != -1) {
+					interval[0] = currentStart;
+					interval[1] = currentEnd;
+					undecided = false;
 				}
-				if(isBooked) {
-					boolean[] finalArray = new boolean[DAY_COUNT];
-					for(int j = currentStart;j<=currentEnd;j++) {
-						finalArray[j] = true;
-					}
-					return finalArray;
-				}
+				currentStart = -1;
+				currentEnd = -1;
 			}
 		}
-		if(longestStart == -1 || longestEnd == -1) {
-			longestStart = currentStart;
-			longestEnd = currentEnd;
+		if(undecided) {
+			interval[1]= -2;
+			interval[0]= -2;
 		}
-		boolean[] finalArray = new boolean[DAY_COUNT];
-		if(longestStart == -1 || longestEnd == -1) {
-			return finalArray;
+		return interval;
+	}
+	
+	private int[] nextIntervalInArray(boolean[] array, int start) {
+		if(start>= array.length) {
+			return null;
 		}
-		for(int i = longestStart;i<=longestEnd;i++) {
-			finalArray[i] = true;
+		int[] interval = {-1,-1};
+		for(int i = start;i<array.length;i++) {
+			if(interval[0] == -1 && array[i]) {
+				interval[0] = i;
+			} else if(interval[0] != -1 && !array[i]) {
+				interval[1]=i;
+				return interval;
+			}
 		}
-		return finalArray;
-		
+		if(interval[0]!= -1) {
+			interval[1] = array.length;
+			return interval;
+		}
+		return null;
 	}
 	
 	/**
@@ -325,34 +474,54 @@ public class Client implements Comparable<Client>{
 	public List<Item> whatToBuyNext(){
 		//updateItemList();
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
-		boolean inFlightReady = false;
+		boolean[] bookedHotels = new boolean[DAY_COUNT];
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				unsatisfiedItems.add(item);
 			} 
-			if (item instanceof HotelItem && item.isSatisfied() && ((HotelItem)item).getDay() == arrivalDay) {
-				inFlightReady = true;
+			if (item instanceof HotelItem && item.isSatisfied()) {
+				bookedHotels[((HotelItem)item).getDay()] = true;
 			}
 		}
 		
-		// make sure hotels are bought first - if there's still a hotel to be bought, buy this first!
-		boolean add = unsatisfiedItems.isEmpty();
+		AllocationInfo info = getAllocationInfo();
 		
-		// TODO allow to buy events for the days that are already booked?
 		for(Item item : items) {
-			if(!item.isSatisfied() && add) {
-				unsatisfiedItems.add(item);
-			} 
-			// add inflight as soon as the hotel for the first day is booked
-			else if (item instanceof FlightItem 
-					&& !item.isSatisfied() 
-					&& inFlightReady 
-					&& ((FlightItem)item).getType() == FlightType.IN
-					&& !add) {
-				unsatisfiedItems.add(item);
+			if(info.isIntervalCertainty()) {
+				if(!item.isSatisfied()) {
+					if(item instanceof FlightItem) {
+						// add flights if possible
+						FlightItem fItem = (FlightItem)item;
+						switch(fItem.getType()) {
+						case IN: 
+							if(info.getBookedHotels()[info.getActualArrival()]) {
+								unsatisfiedItems.add(fItem);
+							}
+							break;
+						case OUT:
+							if (info.getBookedHotels()[info.getActualDeparture()-1]) {
+								unsatisfiedItems.add(fItem);
+							}
+						}
+					} else {
+						// add all events
+						unsatisfiedItems.add(item);
+					}
+				}
 			}
+			
+			
+//			// add outflight in the end
+//			if(!item.isSatisfied() && addAll) {
+//				unsatisfiedItems.add(item);
+//			} 
+//			// if first day is already booked add everything but outflight
+//			else if(!item.isSatisfied() 
+//					&& bookedHotels[arrivalDay] 
+//					&& !(item instanceof FlightItem && ((FlightItem)item).getType() == FlightType.OUT)) {
+//				unsatisfiedItems.add(item);
+//			}
 		}
-//		System.out.println(createItemListString(unsatisfiedItems));
 		return unsatisfiedItems;
 		
 	}
@@ -375,7 +544,7 @@ public class Client implements Comparable<Client>{
 			}
 		}
 		if(hit) {
-			updateItemList();
+			updateItemList(getAllocationInfo());
 		}
 		return hit;
 	}
@@ -388,7 +557,7 @@ public class Client implements Comparable<Client>{
 	public void auctionClosed(HotelItem item) {
 		closedHotelAuctions.add(item);
 //		System.out.println("auction closed for " + item.getDay() + " " + item.getType());
-		updateItemList();
+		updateItemList(getAllocationInfo());
 	}
 
 	/**

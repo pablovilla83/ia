@@ -12,8 +12,10 @@ import com.teamtaco.util.EventType;
  *
  */
 public class EventItem extends Item {
+	
+	public static final int UNBOOKED = -1;
 
-	private int bookedDay;
+	private int bookedDay = UNBOOKED;
 
 	private boolean[] possibleDays = new boolean[6];
 
@@ -36,6 +38,10 @@ public class EventItem extends Item {
 	public void setPossibleDays(boolean[] possibleDays) {
 		this.possibleDays = possibleDays;
 	}
+	public boolean isSatisfied() {
+		return bookedDay != UNBOOKED;
+	}
+	
 	@Override
 	public boolean isMandatory() {
 		return false;

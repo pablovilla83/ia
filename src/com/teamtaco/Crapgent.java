@@ -6,6 +6,7 @@ package com.teamtaco;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -33,9 +34,8 @@ public class Crapgent extends AgentImpl {
 	private static final Logger log =
 		    Logger.getLogger(Crapgent.class.getName());
 	float[] prices= new float[28];
-	boolean[][] tmpCat = new boolean[8][3];
-	int[] tmpEvent = new int[28];
 	
+	List<EventItem> ownedItems = new ArrayList<EventItem>();
 	
 	/*
 	 * (non-Javadoc)
@@ -57,6 +57,9 @@ public class Crapgent extends AgentImpl {
 		// here comes update of bids
 		int auction = quote.getAuction();
 		prices[auction] = quote.getAskPrice();
+		
+		List<EventWrapper> eventWrappers = new ArrayList<EventWrapper>();
+		
 		//check if the quote that got updated is on the whatToBuyNext list...
 		for (Client client: clients){
 			List<Item> listItems = new ArrayList<Item>();
@@ -69,8 +72,100 @@ public class Crapgent extends AgentImpl {
 				}else if(item instanceof HotelItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL){
 					manageHotelBid(client, (HotelItem)item, auction);
 				}else if (item instanceof EventItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_ENTERTAINMENT){
-					// TODO test here if we already have such an event!
-					manageEventBid(client, (EventItem)item, auction);
+					// prepare event-list
+					if(!item.isSatisfied()) {
+						eventWrappers.add(new EventWrapper((EventItem) item, client));
+					}
+				}
+			}
+		}
+		updateEventBids(new EventManager(eventWrappers));
+	}
+	
+	// TODO probably call this method not only when quotes got updated but repeatedly every x seconds
+	private void updateEventBids(EventManager manager) {
+		// we only have to care about event-auctions obviously
+		EventWrapper highestUtility = null;
+		EventItem bestItem = null;
+		
+		// find the best item to currently bid for
+		for (int auction = 0; auction < TACAgent.getAuctionNo(); auction++) {
+			if (TACAgent.getAuctionCategory(auction) == TACAgent.CAT_ENTERTAINMENT) {
+				int type = TACAgent.getAuctionType(auction);
+
+				EventItem item = new EventItem();
+				item.setBookedDay(TACAgent.getAuctionDay(auction));
+				item.setType(EventType.getTypeByTacType(type));
+				
+				// TODO teach agent to ignore 0-askprice items (they are actually not on sale I guess
+				item.setActualPrice((int) agent.getQuote(auction).getAskPrice()+1);
+				EventWrapper wrapper = manager.getClientWithHighestBonus(item);
+				if (manager.getUtility(wrapper, item) > manager.getUtility(
+						highestUtility, bestItem)) {
+					highestUtility = wrapper;
+					bestItem = item;
+				}
+
+			}
+		}
+		
+		// if positive score -> buy (place bid and wait)
+		// TODO probably define threshold so that we at least increase our score by 10?
+		// effect could be, that the agent waits until he gets a better price
+		if(manager.getUtility(highestUtility, bestItem)>0) {
+			
+			// first check if we have items of this on our own
+			Iterator<EventItem> it = ownedItems.iterator();
+			while(it.hasNext()) {
+				EventItem next = it.next();
+				
+				if(next.getType() == bestItem.getType()
+						&& next.getBookedDay() == bestItem.getBookedDay()) {
+					ownedItems.remove(next);
+					highestUtility.getItem().setBookedDay(next.getBookedDay());
+					highestUtility.getClient().bookItem(highestUtility.getItem(), next.getActualPrice());
+					return;
+				}
+			}
+			
+			int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, bestItem.getType().getTacType(), bestItem.getBookedDay());
+			agent.setAllocation(auction, agent.getAllocation(auction)+1);
+			Bid bid = new Bid(auction);
+			bid.addBidPoint(1, bestItem.getActualPrice());
+			agent.submitBid(bid);
+			highestUtility.getItem().setBookedDay(bestItem.getBookedDay());
+			highestUtility.getItem().setActualPrice(bestItem.getActualPrice());
+			
+			// even if we don't know if we won the auction we book the item as we have no further influence on it anyway
+			highestUtility.getClient().bookItem(highestUtility.getItem(), bestItem.getActualPrice());
+		}
+
+		// remove owned items if the best bonus of a client is lower than the askprice
+		// only remove one at a time
+		for(int i = 0;i<ownedItems.size();i++) {
+			EventItem item = ownedItems.get(i);
+			EventWrapper wrapper = manager.getClientWithHighestBonus(item);
+			int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, item.getType().getTacType(), item.getBookedDay());
+			
+			// TODO do we want a threshold? The cheaper we sell it, the higher the others will score!
+			float highestBid = agent.getQuote(auction).getBidPrice();
+			if(highestBid >25 ) {
+				if(wrapper != null) {
+					int bonus = wrapper.getClient().getBonus(item.getType().getTacType());
+					if(bonus+1 < highestBid) {
+						ownedItems.remove(item);
+						Bid bid = new Bid(auction);
+						bid.addBidPoint(-1, highestBid-1);
+						agent.submitBid(bid);
+						i--;
+					}
+				} else if(agent.getGameTimeLeft()/1000 < 60 && manager.getNumberOfPotentialBuyers(item)==0) {
+					// sell the crap in the last 60 seconds
+					ownedItems.remove(item);
+					Bid bid = new Bid(auction);
+					bid.addBidPoint(-1, highestBid-1);
+					agent.submitBid(bid);
+					i--;
 				}
 			}
 		}
@@ -114,76 +209,6 @@ public class Crapgent extends AgentImpl {
 				}
 			}
 		}
-	}
-	
-	private void manageEventBid(Client client, EventItem item, int auction) {
-//		int preference=0;
-//		if(client.getE1Bonus() > client.getE2Bonus())
-//			preference = (client.getE1Bonus() > client.getE3Bonus()) ? TACAgent.E1 : TACAgent.E3;
-//		else
-//			preference = (client.getE2Bonus() > client.getE3Bonus()) ? TACAgent.E2 : TACAgent.E3;
-				
-//		if(item.getType().getBonusConstant()==preference){
-		
-		if (client.getBonus(item.getType().getBonusConstant()) > 100){
-			//check if we already own a ticket...
-			if (item.getPossibleDays()[TACAgent.getAuctionDay(auction)]){
-				if (tmpEvent[auction] < agent.getOwn(auction)) {
-					//mark the item as satisfied and update allocation
-					int price = 0;
-					client.bookItem(item, price);
-					tmpEvent[auction]++;
-					System.out.println("saving in tmpEvent");
-				}
-				else{
-					//let's try to buy a ticket for that day...
-					// TODO: if my asking prince is > utility sell for asking price, else sell for utility+1
-					if(evaluateBonusEvent(client, item, auction)){
-						Bid bid = new Bid(auction);
-						bid.addBidPoint(agent.getAllocation(auction)+1, prices[auction]);
-						agent.submitBid(bid);
-						agent.setAllocation(auction, agent.getAllocation(auction)+1);
-						client.bookItem(item, item.getMaxPrice());
-						System.out.println("submitted " + bid.getBidString() + " price: " + item.getMaxPrice() + " for auction " + auction);
-					}
-				}
-			}
-		}
-		else{
-			// sell the ticket
-			
-			if (agent.getAllocation(auction) < agent.getOwn(auction) && tmpEvent[auction] < agent.getOwn(auction)){
-				int i = agent.getAllocation(auction) - agent.getOwn(auction);
-				Bid bid = new Bid(auction);
-				// TODO: fix this dick
-				if (prices[auction] > 40)
-					bid.addBidPoint(i, prices[auction]/3);
-				agent.submitBid(bid);
-				tmpEvent[auction]++;
-				System.out.println("I'm selling for auction " + auction + " " + bid.getBidString());
-			}
-			
-		}
-	}
-
-	private boolean evaluateBonusEvent(Client client, EventItem item, int auction){
-		int auctionType = TACAgent.getAuctionType(auction);
-		boolean evaluateBonus = false;
-		
-		switch (auctionType) {
-		case TACAgent.TYPE_ALLIGATOR_WRESTLING:
-			evaluateBonus = prices[auction]<client.getE1Bonus();
-			break;
-
-		case TACAgent.TYPE_AMUSEMENT:
-			evaluateBonus = prices[auction]<client.getE2Bonus();
-			break;
-		
-		default:
-			evaluateBonus = prices[auction]<client.getE3Bonus(); 
-			break;
-		}
-		return evaluateBonus;
 	}
 	
 	@Override
@@ -240,8 +265,10 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void gameStarted() {
+		
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
+		ownedItems.clear();
 		float avgHotelBonus = 0;
 		for(int i = 0;i<8;i++){
 			Client c = new Client(i);
@@ -254,9 +281,6 @@ public class Crapgent extends AgentImpl {
 			avgHotelBonus += c.getHotelBonus();
 			System.out.println(c.toString());
 			clients.add(c);
-			for(int j=0;j<3;j++){
-				tmpCat[i][j]=false;
-			}
 		}
 		
 		// learn the hotelBonus from past games (how much more expensive are good hotels
@@ -269,38 +293,33 @@ public class Crapgent extends AgentImpl {
 			}
 			client.initializeItemList();
 		}
+		
+		// save already owned items
+		for(int auction = 0;auction<TACAgent.getAuctionNo();auction++) {
+			if(agent.getOwn(auction)>0 && TACAgent.getAuctionCategory(auction)== TACAgent.CAT_ENTERTAINMENT) {
+				for(int i = 0; i< agent.getOwn(auction);i++) {
+					EventItem item = new EventItem();
+					item.setBookedDay(TACAgent.getAuctionDay(auction));
+					item.setType(EventType.getTypeByTacType(TACAgent.getAuctionType(auction)));
+					item.setActualPrice(0);
+					ownedItems.add(item);
+				}
+			}
+		}
+		
 		calculateAllocation();
 		agent.printOwn(); // sysout on TACAgent line 783
 	}
 
 	private void calculateAllocation() {
-		for(Client client : clients) {
-			for(int i = client.getArrivalDay(); i< client.getDepartureDay();i++) {
-				int type=client.getHotelType().getTacType();
-				int auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type, i);
-				agent.setAllocation(auction, agent.getAllocation(auction)+1);
-				
-					for (int etype=1; etype<4; etype++){
-					int eventAuction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, etype, i);
-					// TODO: check the actual utility
-					if(agent.getAllocation(eventAuction)<agent.getOwn(eventAuction) && !tmpCat[i][etype-1] &&((etype==1 && client.getE1Bonus()>80) 
-							|| (etype==2 && client.getE2Bonus()>80) || (etype==3 && client.getE3Bonus()>80) )){
-						agent.setAllocation(eventAuction, agent.getAllocation(eventAuction)+1);
-						tmpCat[i][etype-1]=true;
-						System.out.println(client.getId()+ " wants 1+ of auction"+eventAuction);
-					}
-					}
-				
+		for (Client client : clients) {
+			for (int i = client.getArrivalDay(); i < client.getDepartureDay(); i++) {
+				int type = client.getHotelType().getTacType();
+				int auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type,
+						i);
+				agent.setAllocation(auction, agent.getAllocation(auction) + 1);
 			}
 		}
-		for(int i=0; i<8;i++){
-			System.out.println("user " + i);
-			for(int j=0;j<3;j++){
-				System.out.print(tmpCat[i][j] + " - ");
-			}
-			System.out.println(" ");
-		}
-		
 	}
 	
 	/*
@@ -373,8 +392,9 @@ public class Crapgent extends AgentImpl {
 			HotelItem hotel = (HotelItem) item;
 			budget -= fixedFee;
 			
-			if(hotel.getType() == HotelType.GOOD)
+			if(hotel.getType() == HotelType.GOOD) {
 				budget += c.getHotelBonus();
+			}
 			
 			budget /= (c.unallocatedHotelDays());
 			// days in the middle of the journey are of higher importance
@@ -383,27 +403,18 @@ public class Crapgent extends AgentImpl {
 			budget *=(0.75+dayPosFactor);
 					
 			// because we won't always pay our max bid we can add a threshold!
-			budget *= 1.1;
+			budget *= 1.25;
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
-				budget *=1.25;
+				budget *=1.5;
 			}
 			return budget;
 		}
 		
 		else if(item instanceof EventItem){
 			EventItem event = (EventItem) item;
-			if(event.getType() == EventType.Event1)
-				budget += c.getE1Bonus();
-			
-			else if(event.getType() == EventType.Event2)
-				budget += c.getE2Bonus();
-			
-			else
-				budget += c.getE3Bonus();
-			
+			budget+=c.getBonus(event.getType().getBonusConstant());
 			budget -= fixedFee;
-			
 			return budget;
 			
 		}
@@ -415,7 +426,6 @@ public class Crapgent extends AgentImpl {
 			budget = 325;
 			// increase the budget slowly until it reaches 800 (250*3.2) in the last 30 seconds
 			budget*= (1+1.5/Math.pow(time, 0.6));
-			System.out.println( budget + " " + time);
 			// at the end of the game just buy the flights!
 			return budget;
 		}
