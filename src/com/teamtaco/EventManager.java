@@ -12,7 +12,7 @@ import java.util.List;
  */
 public class EventManager {
 	
-	List<EventWrapper> events = new ArrayList<>();
+	List<EventWrapper> events = new ArrayList<EventWrapper>();
 	
 	public EventManager(List<EventWrapper> events) {
 		this.events = events;
