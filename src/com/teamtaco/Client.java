@@ -213,69 +213,6 @@ public class Client implements Comparable<Client>{
 	 */
 	private void updateItemList(AllocationInfo info){
 		
-		// check which hotels are still available
-//		if(hotelType != null) {
-//			possibleAllocations = getLongestPossibleStay(allocatedHotelDays, hotelType);
-//		} else {
-//			boolean[] cheapStay = getLongestPossibleStay(allocatedHotelDays, HotelType.CHEAP);
-//			boolean[] goodStay = getLongestPossibleStay(allocatedHotelDays, HotelType.GOOD);
-//			boolean[] together = new boolean[DAY_COUNT];
-//			int cheapDayCount = 0;
-//			int goodDayCount = 0;
-//			for(int i = 0;i< DAY_COUNT;i++) {
-//				if(cheapStay[i]) {
-//					cheapDayCount++;
-//				}
-//				if(goodStay[i]) {
-//					goodDayCount++;
-//				}
-//				together[i] = cheapStay[i] || goodStay[i];
-//			}
-//			if(cheapDayCount == goodDayCount) {
-//				possibleAllocations = together;
-//			} else if (cheapDayCount<goodDayCount) {
-//				possibleAllocations = goodStay;
-//				hotelType = HotelType.GOOD;
-//			} else {
-//				possibleAllocations = cheapStay;
-//				hotelType = HotelType.CHEAP;
-//			}
-//			throw new RuntimeException();
-//		}
-		
-		// find out first possible day (either already booked or still possible)
-//		int firstDay = -1;
-//		int lastDay = -1;
-//		for(int i = 0;i<allocatedHotelDays.length;i++) {
-//			if(allocatedHotelDays[i] || possibleAllocations[i]) {
-//				if(firstDay == -1) {
-//					firstDay = i;
-//				}
-//				lastDay = i;
-//			}
-//		}
-//		if(firstDay == -1 || lastDay == -1) {
-//			arrivalDay = 0;
-//			departureDay = 0;
-//		} else {
-//			arrivalDay = firstDay;
-//			departureDay = lastDay+1;
-//		}
-		
-		
-		
-		// only mark days as possible where a hotel is already booked and will be used
-//		if(allocatedHotelDays[arrivalDay]) {
-//			boolean ended = false;
-//			for(int i = arrivalDay; i< departureDay; i++) {
-//				if(!ended) {
-//					unoccupiedDays[i] = !occupiedDays[i] && allocatedHotelDays[i];
-//					if(!allocatedHotelDays[i]) {
-//						ended = true;
-//					}
-//				}
-//			}
-//		}
 		List<Item> itemsToRemove = new ArrayList<Item>();
 		for(Item item : items) {
 			if(!item.isSatisfied()) {
@@ -342,71 +279,6 @@ public class Client implements Comparable<Client>{
 		return this.hotelType;
 	}
 	
-	/**
-	 * returns the longest possible stay for hoteltype
-	 * 
-	 * If there are already some hotels booked, the interval containing these bookings will be taken
-	 * 
-	 * @param bookedDays
-	 * @param hotelType
-	 * @return
-	 */
-//	private boolean[] getLongestPossibleStay(boolean[] bookedDays,HotelType hotelType ) {
-//		boolean[] overallStay = new boolean[DAY_COUNT];
-//		boolean[] unbookedStay = new boolean[DAY_COUNT];
-//
-//		// calculate overall stay (booked + possible) and unbooked but possible stay
-//		for(int i = arrivalDay; i< departureDay;i++) {
-//			if(!bookedDays[i]) {
-//				boolean possible = !closedHotelAuctions.contains(new HotelItem(i,hotelType));
-//				overallStay[i] = possible;
-//				unbookedStay[i] = possible;
-//			} else {
-//				overallStay[i] = true;
-//			}
-//		}
-//		
-//		// find longest interval
-//		int longestStart = -1,longestEnd = -1;
-//		int currentStart=-1, currentEnd=-1;
-//		boolean isBooked =false;
-//		for(int i=arrivalDay;i<departureDay;i++) {
-//			if(bookedDays[i]) {
-//				isBooked=true;
-//			}
-//			if(overallStay[i]) {
-//				if(currentStart == -1) {
-//					currentStart = i;
-//				}
-//				currentEnd = i;
-//			} else {
-//				if(currentEnd-currentStart >= longestEnd-longestStart) {
-//					longestEnd = currentEnd;
-//					longestStart = currentStart;
-//				}
-//				if(isBooked) {
-//					boolean[] finalArray = new boolean[DAY_COUNT];
-//					for(int j = currentStart;j<=currentEnd;j++) {
-//						finalArray[j] = true;
-//					}
-//					return finalArray;
-//				}
-//			}
-//		}
-//		if(longestStart == -1 || longestEnd == -1) {
-//			longestStart = currentStart;
-//			longestEnd = currentEnd;
-//		}
-//		boolean[] finalArray = new boolean[DAY_COUNT];
-//		if(longestStart == -1 || longestEnd == -1) {
-//			return finalArray;
-//		}
-//		for(int i = longestStart;i<=longestEnd;i++) {
-//			finalArray[i] = true;
-//		}
-//		return finalArray;
-//		
-//	}
 	
 	/**
 	 * searches for the longest true-interval in the given array
@@ -509,18 +381,6 @@ public class Client implements Comparable<Client>{
 					}
 				}
 			}
-			
-			
-//			// add outflight in the end
-//			if(!item.isSatisfied() && addAll) {
-//				unsatisfiedItems.add(item);
-//			} 
-//			// if first day is already booked add everything but outflight
-//			else if(!item.isSatisfied() 
-//					&& bookedHotels[arrivalDay] 
-//					&& !(item instanceof FlightItem && ((FlightItem)item).getType() == FlightType.OUT)) {
-//				unsatisfiedItems.add(item);
-//			}
 		}
 		return unsatisfiedItems;
 		

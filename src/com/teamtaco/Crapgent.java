@@ -228,11 +228,6 @@ public class Crapgent extends AgentImpl {
 			bid.addBidPoint(bids.size(), avgPrice);
 			agent.submitBid(bid);
 		}
-//		if (item.getMaxPrice() >= prices[auction]){
-//			Bid bid = new Bid(auction);
-//			bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
-//			agent.submitBid(bid);
-//		}
 	}
 	
 	private void manageFlightBid(Client client, FlightItem item, int auction) {
@@ -475,8 +470,8 @@ public class Crapgent extends AgentImpl {
 			HotelType type = HotelType.getTypeForConstant(TACAgent.getAuctionType(auction));
 			
 			switch(type) {
-			case GOOD: aggregatedGoodPrices+=quote.getAskPrice();
-			case CHEAP: aggregatedCheapPrices+= quote.getAskPrice();
+			case GOOD: aggregatedGoodPrices+=quote.getAskPrice();break;
+			case CHEAP: aggregatedCheapPrices+= quote.getAskPrice();break;
 			}
 			
 			final HotelItem closedHotel = new HotelItem(TACAgent.getAuctionDay(auction), 
