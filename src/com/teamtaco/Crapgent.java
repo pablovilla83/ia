@@ -286,7 +286,7 @@ public class Crapgent extends AgentImpl {
 					if(agent.getAllocation(eventAuction)<agent.getOwn(eventAuction) && !tmpCat[i][etype-1] &&((etype==1 && client.getE1Bonus()>80) 
 							|| (etype==2 && client.getE2Bonus()>80) || (etype==3 && client.getE3Bonus()>80) )){
 						agent.setAllocation(eventAuction, agent.getAllocation(eventAuction)+1);
-						tmpCat[i][etype]=true;
+						tmpCat[i][etype-1]=true;
 						System.out.println(client.getId()+ " wants 1+ of auction"+eventAuction);
 					}
 					}
