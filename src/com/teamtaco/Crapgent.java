@@ -568,8 +568,9 @@ public class Crapgent extends AgentImpl {
 			//budget *=(0.75+dayPosFactor);
 			budget*=getDayWeight(c.getArrivalDay(), c.getDepartureDay(), hotel.getDay());	
 			
-			// because we won't always pay our max bid we can add a threshold!
-			budget += 100;
+			// because we won't always pay our max bid we can add a threshold
+			// also considers penalties of 100
+			budget += 150;
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
 				budget +=100;
