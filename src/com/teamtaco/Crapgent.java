@@ -223,9 +223,14 @@ public class Crapgent extends AgentImpl {
 			avgPrice+=entry.getValue().getMaxPrice();
 		}
 		avgPrice /= bids.size();
-		if(avgPrice >= prices[auction]) {
+		if(avgPrice >= prices[auction] || agent.getAllocation(auction)<bids.size()) {
+			float bidPrice = prices[auction];
+			if(avgPrice > bidPrice) {
+				bidPrice = avgPrice;
+			}
+			agent.setAllocation(auction, bids.size());
 			Bid bid = new Bid(auction);
-			bid.addBidPoint(bids.size(), avgPrice);
+			bid.addBidPoint(bids.size(), bidPrice);
 			agent.submitBid(bid);
 		}
 	}
@@ -416,6 +421,7 @@ public class Crapgent extends AgentImpl {
 			gameCount =0;
 			avgCheap = 0;
 			avgGood = 0;
+			System.out.println("no previous game data");
 		} else {
 			gameCount = Float.parseFloat(gameCountString);
 			avgCheap = Float.parseFloat(avgCheapString);
@@ -426,9 +432,15 @@ public class Crapgent extends AgentImpl {
 		aggregatedCheapPrices /=4f;
 		aggregatedGoodPrices /= 4f;
 		
+		System.out.println("AVG Cheap before: " + avgCheap);
+		System.out.println("AVG Good before: " + avgGood);
+		
 		gameCount++;
-		avgCheap = (avgCheap*(gameCount-1)/gameCount) + (aggregatedCheapPrices/gameCount);
-		avgGood = (avgGood *(gameCount-1)/gameCount)+(aggregatedGoodPrices/gameCount);
+		avgCheap = (avgCheap*((gameCount-1)/gameCount)) + (aggregatedCheapPrices/gameCount);
+		avgGood = (avgGood *((gameCount-1)/gameCount))+(aggregatedGoodPrices/gameCount);
+
+		System.out.println("AVG Cheap after: " + avgCheap);
+		System.out.println("AVG Good after: " + avgGood);
 		
 		props.setProperty(GAMECOUNT_PROPERTY, ""+gameCount);
 		props.setProperty(AVG_GOOD_HOTEL_PRICE, ""+avgGood);
