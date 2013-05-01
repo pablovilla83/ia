@@ -443,6 +443,28 @@ public class Client implements Comparable<Client>{
 		}
 		return expenses;
 	}
+	
+	public int getExpensesWithoutFlights() {
+		int expenses = 0;
+		for(Item item : items) {
+			if(item.isSatisfied() && !(item instanceof FlightItem)) {
+				if(item instanceof EventItem) {
+					expenses -= getBonus(((EventItem)item).getType().getBonusConstant());
+				}
+				expenses += item.getActualPrice();
+			}
+		}
+		return expenses;
+	}
+	
+	public int getFlightCost(FlightType type) {
+		for(Item item : items) {
+			if(item.isSatisfied() && item instanceof FlightItem && ((FlightItem)item).getType() == type) {
+				return item.getActualPrice();
+			}
+		}
+		return 0;
+	}
 
 	/**
 	 * Indicates if the package bought so far is feasible or not
@@ -473,7 +495,7 @@ public class Client implements Comparable<Client>{
 		}
 		return true;
 	}
-
+	
 	/**
 	 * looks up the bonus for field field
 	 *

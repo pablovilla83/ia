@@ -42,6 +42,8 @@ public class Crapgent extends AgentImpl {
 	private static final String AVG_CHEAP_HOTEL_PRICE = "avgCheapHotelPrice";
 	private static final String AVG_GOOD_HOTEL_PRICE = "avgGoodHotelPrice";
 	
+	private static final int DEFAULT_FLIGHT_COST = 375;
+	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
 	private static final Logger log =
@@ -87,6 +89,7 @@ public class Crapgent extends AgentImpl {
 				if(item instanceof FlightItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_FLIGHT){
 					manageFlightBid(client, (FlightItem)item, auction);
 				}else if(item instanceof HotelItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL){
+					// collect hotels that are still affordable
 					if(evaluateHotelBid(client, (HotelItem)item, auction)) {
 						clientHotelMap.put(client, ((HotelItem)item));
 					}
@@ -205,7 +208,8 @@ public class Crapgent extends AgentImpl {
 		}
 
 		if (TACAgent.getAuctionType(auction) == item.getType().getTacType()
-				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
+				&& TACAgent.getAuctionDay(auction) == item.getDay()
+				&& prices[auction]<item.getMaxPrice()) {
 //			if (item.getMaxPrice() >= prices[auction]){
 //				Bid bid = new Bid(auction);
 //				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
@@ -218,20 +222,19 @@ public class Crapgent extends AgentImpl {
 	}
 	
 	private void placeHotelBids(Map<Client, HotelItem> bids, int auction) {
-		float avgPrice = 0;
-		for(Entry<Client, HotelItem> entry : bids.entrySet()) {
-			avgPrice+=entry.getValue().getMaxPrice();
-		}
-		avgPrice /= bids.size();
-		if(avgPrice >= prices[auction] || agent.getAllocation(auction)<bids.size()) {
-			float bidPrice = prices[auction];
-			if(avgPrice > bidPrice) {
-				bidPrice = avgPrice;
-			}
+		if(!bids.isEmpty()) {
 			agent.setAllocation(auction, bids.size());
 			Bid bid = new Bid(auction);
-			bid.addBidPoint(bids.size(), bidPrice);
-			agent.submitBid(bid);
+			int owned = agent.getQuote(auction).getHQW();
+			for(Entry<Client, HotelItem> entry : bids.entrySet()) {
+				if(owned < bids.size()) {
+					bid.addBidPoint(1, entry.getValue().getMaxPrice());
+					owned++;
+				}
+			}
+			if(bid.getQuantity()>0) {
+				agent.submitBid(bid);
+			}
 		}
 	}
 	
@@ -541,12 +544,18 @@ public class Crapgent extends AgentImpl {
 	}
 	
 	public float calculateMaxPrice(Client c, Item item){
-		float budget = 1000;
-		int fixedFee = 600;
 		
 		if (item instanceof HotelItem){
 			HotelItem hotel = (HotelItem) item;
-			budget -= fixedFee;
+			float budget = 1000;
+			
+			// subtract flightcosts - if already booked use actual price, if not use default value
+			for(FlightType type : FlightType.values()) {
+				int flightCost = c.getFlightCost(type);
+				budget -= flightCost>0?flightCost:DEFAULT_FLIGHT_COST;
+			}
+			int expenses = c.getExpensesWithoutFlights();
+			budget -= expenses;
 			
 			if(hotel.getType() == HotelType.GOOD) {
 				budget += c.getHotelBonus();
@@ -555,27 +564,25 @@ public class Crapgent extends AgentImpl {
 			budget /= (c.unallocatedHotelDays());
 			// days in the middle of the journey are of higher importance
 			// formula: 0.75 +(-0.25*(x-arrivalDay)*(x-departureDay))^0.5
-			double dayPosFactor =Math.pow(-0.25 * (hotel.getDay()-c.getArrivalDay()+0.01)*(hotel.getDay()-c.getDepartureDay()-0.01), 0.5);
-			budget *=(0.75+dayPosFactor);
-					
+			//double dayPosFactor =Math.pow(-0.25 * (hotel.getDay()-c.getArrivalDay()+0.01)*(hotel.getDay()-c.getDepartureDay()-0.01), 0.5);
+			//budget *=(0.75+dayPosFactor);
+			budget*=getDayWeight(c.getArrivalDay(), c.getDepartureDay(), hotel.getDay());	
+			
 			// because we won't always pay our max bid we can add a threshold!
-			budget *= 1.25;
+			budget += 100;
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
-				budget *=1.25;
+				budget +=100;
 			}
-			budget *= 0.8;
 			return budget;
 		}
 		
 		else if(item instanceof EventItem){
 			EventItem event = (EventItem) item;
-			budget+=c.getBonus(event.getType().getBonusConstant());
-			budget -= fixedFee;
-			return budget;
-			
+			return c.getBonus(event.getType().getBonusConstant());
 		}
 		else{
+			float budget;
 			// increase the budget every 9.9 game-seconds
 			float time = agent.getGameTimeLeft()/9900-4;
 			time = time < 1? 1 : time;
@@ -586,5 +593,30 @@ public class Crapgent extends AgentImpl {
 			// at the end of the game just buy the flights!
 			return budget;
 		}
+	}
+	
+	private double getDayWeight(int startDay, int endDay, int day) {
+		if(day<startDay || day >= endDay) {
+			return 0;
+		} 
+		switch(endDay-startDay) {
+		case 0: return 0;
+		case 1: return 1;
+		case 2: return 1;
+		case 3:
+			switch(day-startDay) {
+			case 0:
+			case 2: return 0.85;
+			case 1: return 1.3;
+			} break;
+		case 4:
+			switch(day-startDay) {
+			case 0:
+			case 3: return 0.85;
+			case 1:
+			case 2: return 1.15;
+			}
+		}
+		return 0;
 	}
 }
