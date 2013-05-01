@@ -397,9 +397,9 @@ public class Crapgent extends AgentImpl {
 			float time = agent.getGameTimeLeft()/9900-4;
 			time = time < 1? 1 : time;
 			// start at a really low price for the flights
-			budget = 250;
+			budget = 325;
 			// increase the budget slowly until it reaches 800 (250*3.2) in the last 30 seconds
-			budget*= (1+2.2/Math.pow(time, 0.6));
+			budget*= (1+1.5/Math.pow(time, 0.6));
 			System.out.println( budget + " " + time);
 			// at the end of the game just buy the flights!
 			return budget;
