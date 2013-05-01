@@ -3,11 +3,20 @@
  */
 package com.teamtaco;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.logging.Logger;
@@ -29,11 +38,18 @@ import com.teamtaco.util.HotelType;
  */
 public class Crapgent extends AgentImpl {
 	
+	private static final String GAMECOUNT_PROPERTY = "gameCount";
+	private static final String AVG_CHEAP_HOTEL_PRICE = "avgCheapHotelPrice";
+	private static final String AVG_GOOD_HOTEL_PRICE = "avgGoodHotelPrice";
+	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
 	private static final Logger log =
 		    Logger.getLogger(Crapgent.class.getName());
 	float[] prices= new float[28];
+	
+	private float aggregatedCheapPrices;
+	private float aggregatedGoodPrices;
 	
 	List<EventItem> ownedItems = new ArrayList<EventItem>();
 	
@@ -59,6 +75,7 @@ public class Crapgent extends AgentImpl {
 		prices[auction] = quote.getAskPrice();
 		
 		List<EventWrapper> eventWrappers = new ArrayList<EventWrapper>();
+		Map<Client, HotelItem> clientHotelMap = new HashMap<Client, HotelItem>();
 		
 		//check if the quote that got updated is on the whatToBuyNext list...
 		for (Client client: clients){
@@ -70,7 +87,9 @@ public class Crapgent extends AgentImpl {
 				if(item instanceof FlightItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_FLIGHT){
 					manageFlightBid(client, (FlightItem)item, auction);
 				}else if(item instanceof HotelItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL){
-					manageHotelBid(client, (HotelItem)item, auction);
+					if(evaluateHotelBid(client, (HotelItem)item, auction)) {
+						clientHotelMap.put(client, ((HotelItem)item));
+					}
 				}else if (item instanceof EventItem && TACAgent.getAuctionCategory(auction) == TACAgent.CAT_ENTERTAINMENT){
 					// prepare event-list
 					if(!item.isSatisfied()) {
@@ -79,6 +98,7 @@ public class Crapgent extends AgentImpl {
 				}
 			}
 		}
+		placeHotelBids(clientHotelMap, auction);
 		updateEventBids(new EventManager(eventWrappers));
 	}
 	
@@ -98,12 +118,14 @@ public class Crapgent extends AgentImpl {
 				item.setType(EventType.getTypeByTacType(type));
 				
 				// TODO teach agent to ignore 0-askprice items (they are actually not on sale I guess
-				item.setActualPrice((int) agent.getQuote(auction).getAskPrice()+1);
-				EventWrapper wrapper = manager.getClientWithHighestBonus(item);
-				if (manager.getUtility(wrapper, item) > manager.getUtility(
-						highestUtility, bestItem)) {
-					highestUtility = wrapper;
-					bestItem = item;
+				if(agent.getQuote(auction).getAskPrice()>0) {
+					item.setActualPrice((int) agent.getQuote(auction).getAskPrice()+1);
+					EventWrapper wrapper = manager.getClientWithHighestBonus(item);
+					if (manager.getUtility(wrapper, item) > manager.getUtility(
+							highestUtility, bestItem)) {
+						highestUtility = wrapper;
+						bestItem = item;
+					}
 				}
 
 			}
@@ -147,6 +169,11 @@ public class Crapgent extends AgentImpl {
 			EventWrapper wrapper = manager.getClientWithHighestBonus(item);
 			int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, item.getType().getTacType(), item.getBookedDay());
 			
+			// try to avoid overselling
+			if(agent.getOwn(auction)<0) {
+				return;
+			}
+			
 			// TODO do we want a threshold? The cheaper we sell it, the higher the others will score!
 			float highestBid = agent.getQuote(auction).getBidPrice();
 			if(highestBid >25 ) {
@@ -171,7 +198,7 @@ public class Crapgent extends AgentImpl {
 		}
 	}
 	
-	private void manageHotelBid(Client client, HotelItem item, int auction) {
+	private boolean evaluateHotelBid(Client client, HotelItem item, int auction) {
 		// allocate initial type if not done yet
 		if(item.getType() == null) {
 			throw new RuntimeException("hotel type not set!");
@@ -179,12 +206,33 @@ public class Crapgent extends AgentImpl {
 
 		if (TACAgent.getAuctionType(auction) == item.getType().getTacType()
 				&& TACAgent.getAuctionDay(auction) == ((HotelItem) item).getDay()) {
-			if (item.getMaxPrice() >= prices[auction]){
-				Bid bid = new Bid(auction);
-				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
-				agent.submitBid(bid);
-			}
+//			if (item.getMaxPrice() >= prices[auction]){
+//				Bid bid = new Bid(auction);
+//				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
+//				agent.submitBid(bid);
+//			}
+			return true;
+			
 		}
+		return false;
+	}
+	
+	private void placeHotelBids(Map<Client, HotelItem> bids, int auction) {
+		float avgPrice = 0;
+		for(Entry<Client, HotelItem> entry : bids.entrySet()) {
+			avgPrice+=entry.getValue().getMaxPrice();
+		}
+		avgPrice /= bids.size();
+		if(avgPrice >= prices[auction]) {
+			Bid bid = new Bid(auction);
+			bid.addBidPoint(bids.size(), avgPrice);
+			agent.submitBid(bid);
+		}
+//		if (item.getMaxPrice() >= prices[auction]){
+//			Bid bid = new Bid(auction);
+//			bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
+//			agent.submitBid(bid);
+//		}
 	}
 	
 	private void manageFlightBid(Client client, FlightItem item, int auction) {
@@ -269,6 +317,9 @@ public class Crapgent extends AgentImpl {
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
 		ownedItems.clear();
+		aggregatedCheapPrices = 0;
+		aggregatedGoodPrices = 0;
+		
 		float avgHotelBonus = 0;
 		for(int i = 0;i<8;i++){
 			Client c = new Client(i);
@@ -284,7 +335,32 @@ public class Crapgent extends AgentImpl {
 		}
 		
 		// learn the hotelBonus from past games (how much more expensive are good hotels
-		avgHotelBonus /= 8;
+		Properties props = getGameProperties();
+		
+		String gameCountString = props.getProperty(GAMECOUNT_PROPERTY);
+		String avgCheapString = props.getProperty(AVG_CHEAP_HOTEL_PRICE);
+		String avgGoodString = props.getProperty(AVG_GOOD_HOTEL_PRICE);
+		
+		float gameCount;
+		float avgCheap;
+		float avgGood;
+		if(gameCountString == null || avgCheapString == null || avgGoodString == null) {
+			// initialize
+			gameCount =0;
+			avgCheap = 0;
+			avgGood = 0;
+		} else {
+			gameCount = Float.parseFloat(gameCountString);
+			avgCheap = Float.parseFloat(avgCheapString);
+			avgGood = Float.parseFloat(avgGoodString);
+		}
+		
+		if(gameCount != 0) {
+			avgHotelBonus = avgGood - avgCheap;
+			System.out.println("Read values for gameCount:" + gameCount + "; avgDifference: " + avgHotelBonus);
+		} else {
+			avgHotelBonus /= 8;
+		}
 		for(Client client : clients) {
 			if(client.getHotelBonus() > avgHotelBonus) {
 				client.setHotelType(HotelType.GOOD);
@@ -329,11 +405,61 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public void gameStopped() {
-		// TODO Get the final asking price array so that we can improve next rounds
 		log.fine("Game Stopped!");
-
+		
+		Properties props = getGameProperties();
+		
+		String gameCountString = props.getProperty(GAMECOUNT_PROPERTY);
+		String avgCheapString = props.getProperty(AVG_CHEAP_HOTEL_PRICE);
+		String avgGoodString = props.getProperty(AVG_GOOD_HOTEL_PRICE);
+		
+		float gameCount;
+		float avgCheap;
+		float avgGood;
+		if(gameCountString == null || avgCheapString == null || avgGoodString == null) {
+			// initialize
+			gameCount =0;
+			avgCheap = 0;
+			avgGood = 0;
+		} else {
+			gameCount = Float.parseFloat(gameCountString);
+			avgCheap = Float.parseFloat(avgCheapString);
+			avgGood = Float.parseFloat(avgGoodString);
+		}
+		
+		
+		aggregatedCheapPrices /=4f;
+		aggregatedGoodPrices /= 4f;
+		
+		gameCount++;
+		avgCheap = (avgCheap*(gameCount-1)/gameCount) + (aggregatedCheapPrices/gameCount);
+		avgGood = (avgGood *(gameCount-1)/gameCount)+(aggregatedGoodPrices/gameCount);
+		
+		props.setProperty(GAMECOUNT_PROPERTY, ""+gameCount);
+		props.setProperty(AVG_GOOD_HOTEL_PRICE, ""+avgGood);
+		props.setProperty(AVG_CHEAP_HOTEL_PRICE, ""+avgCheap);
+		
+		try {
+			props.store(new FileWriter(agent.getHost()+".properties"), null);
+		} catch (IOException e) {
+			System.err.println(e.getMessage());
+		}
+		
+		System.out.println("GameCount: " + gameCount + "; avgDifference: "+(avgGood-avgCheap));
 	}
-
+	
+	public Properties getGameProperties() {
+		Properties props = new Properties();
+		try {
+			props.load(new FileReader(new File(agent.getHost()+".properties")));
+		} catch (FileNotFoundException e) {
+			System.err.println(e.getMessage());
+		} catch (IOException e) {
+			System.err.println(e.getMessage());
+		}
+		return props;
+	}
+	
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -344,20 +470,43 @@ public class Crapgent extends AgentImpl {
 		// notification only necessary for Hotels
 		if(TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL) {
 			int quantity = agent.getOwn(auction);
+			Quote quote = agent.getQuote(auction);
 			
-			// try to finish almost finished clients first
+			HotelType type = HotelType.getTypeForConstant(TACAgent.getAuctionType(auction));
+			
+			switch(type) {
+			case GOOD: aggregatedGoodPrices+=quote.getAskPrice();
+			case CHEAP: aggregatedCheapPrices+= quote.getAskPrice();
+			}
+			
+			final HotelItem closedHotel = new HotelItem(TACAgent.getAuctionDay(auction), 
+					type);
+			
+			// try to satisfy clients with the highest maxPrice first
+			// then order by amount of unsatisfied Items
 			ArrayList<Client> clientList = new ArrayList<Client>(clients);
 			Collections.sort(clientList, new Comparator<Client>() {
 				@Override
 				public int compare(Client o1, Client o2) {
-					return((Integer)o1.unallocatedHotelDays()).compareTo(o2.unallocatedHotelDays());
+					int maxPriceCompare = 0;
+					HotelItem o1Item = o1.findItem(closedHotel);
+					HotelItem o2Item = o2.findItem(closedHotel);
+					if(o1Item == null && o2Item != null) {
+						return new Integer(0).compareTo(1000);
+					} else if(o1Item != null && o2Item == null) {
+						return new Integer(1000).compareTo(0);
+					} else if (o1Item != null && o2Item!= null){
+						maxPriceCompare = ((Integer)o1Item.getMaxPrice()).compareTo(o2Item.getMaxPrice());
+						if(maxPriceCompare != 0) {
+							return maxPriceCompare;
+						}
+					}
+					return((Integer)o1.unallocatedHotelDays()).compareTo(o2.unallocatedHotelDays()); 
 				}
 			});
-			HotelItem closedHotel = new HotelItem(TACAgent.getAuctionDay(auction), 
-					HotelType.getTypeForConstant(TACAgent.getAuctionType(auction)));
 			for(Client client : clientList) {
 				if(quantity > 0 
-						&& client.bookItem(closedHotel, (int)agent.getQuote(auction).getAskPrice())) {
+						&& client.bookItem(closedHotel, (int)quote.getAskPrice())) {
 					quantity--;
 				}
 				client.auctionClosed(closedHotel);
@@ -406,8 +555,9 @@ public class Crapgent extends AgentImpl {
 			budget *= 1.25;
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
-				budget *=1.5;
+				budget *=1.25;
 			}
+			budget *= 0.8;
 			return budget;
 		}
 		

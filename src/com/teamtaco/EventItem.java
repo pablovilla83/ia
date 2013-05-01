@@ -53,6 +53,9 @@ public class EventItem extends Item {
 		}
 		EventItem item = (EventItem) obj;
 		if(this.getType() == item.getType()) {
+			if(this.getBookedDay() != UNBOOKED) {
+				return this.getBookedDay() == ((EventItem)item).getBookedDay();
+			}
 			return true;
 		}
 		return false;

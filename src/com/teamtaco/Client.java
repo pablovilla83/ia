@@ -556,8 +556,17 @@ public class Client implements Comparable<Client>{
 	 */
 	public void auctionClosed(HotelItem item) {
 		closedHotelAuctions.add(item);
-//		System.out.println("auction closed for " + item.getDay() + " " + item.getType());
 		updateItemList(getAllocationInfo());
+	}
+	
+	@SuppressWarnings("unchecked")
+	public <T extends Item> T findItem(T item) {
+		for(Item current : items) {
+			if(current.equals(item)) {
+				return (T)current;
+			}
+		}
+		return null;
 	}
 
 	/**
