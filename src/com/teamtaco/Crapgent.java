@@ -33,7 +33,7 @@ public class Crapgent extends AgentImpl {
 	private static final Logger log =
 		    Logger.getLogger(Crapgent.class.getName());
 	float[] prices= new float[28];
-	
+	boolean[][] tmpCat = new boolean[8][3];
 	int[] tmpEvent = new int[28];
 	
 	
@@ -254,6 +254,9 @@ public class Crapgent extends AgentImpl {
 			avgHotelBonus += c.getHotelBonus();
 			System.out.println(c.toString());
 			clients.add(c);
+			for(int j=0;j<3;j++){
+				tmpCat[i][j]=false;
+			}
 		}
 		
 		// learn the hotelBonus from past games (how much more expensive are good hotels
@@ -277,15 +280,27 @@ public class Crapgent extends AgentImpl {
 				int auction = TACAgent.getAuctionFor(TACAgent.CAT_HOTEL, type, i);
 				agent.setAllocation(auction, agent.getAllocation(auction)+1);
 				
-				for (int etype=1; etype<4; etype++){
+					for (int etype=1; etype<4; etype++){
 					int eventAuction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, etype, i);
 					// TODO: check the actual utility
-					if(agent.getAllocation(eventAuction)<agent.getOwn(eventAuction) && (client.getE1Bonus()>80 || client.getE2Bonus()>80 || client.getE3Bonus()>80 )){
+					if(agent.getAllocation(eventAuction)<agent.getOwn(eventAuction) && !tmpCat[i][etype-1] &&((etype==1 && client.getE1Bonus()>80) 
+							|| (etype==2 && client.getE2Bonus()>80) || (etype==3 && client.getE3Bonus()>80) )){
 						agent.setAllocation(eventAuction, agent.getAllocation(eventAuction)+1);
+						tmpCat[i][etype-1]=true;
+						System.out.println(client.getId()+ " wants 1+ of auction"+eventAuction);
 					}
-				}
+					}
+				
 			}
 		}
+		for(int i=0; i<8;i++){
+			System.out.println("user " + i);
+			for(int j=0;j<3;j++){
+				System.out.print(tmpCat[i][j] + " - ");
+			}
+			System.out.println(" ");
+		}
+		
 	}
 	
 	/*
