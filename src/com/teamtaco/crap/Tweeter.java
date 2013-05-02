@@ -37,7 +37,7 @@ public class Tweeter {
 				@Override
 				public void onException(TwitterException e, TwitterMethod method) {
 					if(method == TwitterMethod.UPDATE_STATUS) {
-						System.err.println(e.getMessage());
+//						System.err.println(e.getMessage());
 					}
 				}
 			});

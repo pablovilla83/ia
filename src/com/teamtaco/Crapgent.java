@@ -446,8 +446,9 @@ public class Crapgent extends AgentImpl {
 			int quantity = agent.getOwn(auction);
 			Quote quote = agent.getQuote(auction);
 			
-			Tweeter.tweet("Just won " + agent.getOwn(auction) + " Hotels for "+quote.getAskPrice()+" at"+System.currentTimeMillis() +"!");
-			
+			if(quantity>0) {
+				Tweeter.tweet("Just won " + quantity + " Hotels for "+quote.getAskPrice()+" at"+System.currentTimeMillis() +"!");
+			}
 			HotelType type = HotelType.getTypeForConstant(TACAgent.getAuctionType(auction));
 			
 			switch(type) {
