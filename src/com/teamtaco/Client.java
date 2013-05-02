@@ -4,6 +4,7 @@
 package com.teamtaco;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,15 +20,13 @@ import com.teamtaco.util.HotelType;
  * @author Frederik
  *
  */
-public class Client implements Comparable<Client>{
+public class Client{
 
 	public static final int DAY_COUNT = 6;
 
 	private int id;
 	private int arrivalDay;
-	private int initialArrivalDay;
 	private int departureDay;
-	private int initialDepartureDay;
 	private int hotelBonus;
 
 	private int e1Bonus = 0;
@@ -37,8 +36,8 @@ public class Client implements Comparable<Client>{
 	private HotelType hotelType;
 
 
-	private List<Item> items = new ArrayList<Item>();
-	private Set<HotelItem> closedHotelAuctions = new HashSet<HotelItem>();
+	private List<Item> items = Collections.synchronizedList(new ArrayList<Item>());
+	private Set<HotelItem> closedHotelAuctions = Collections.synchronizedSet(new HashSet<HotelItem>());
 
 	public Client (int id){
 		this.setId(id);
@@ -47,10 +46,8 @@ public class Client implements Comparable<Client>{
 	public Client(int id, int arrivalDay, int departureDay, int hotelBonus, int e1Bonus, int e2Bonus, int e3Bonus){
 		this.setId(id);
 		this.arrivalDay = arrivalDay;
-		initialArrivalDay = arrivalDay;
 		this.hotelBonus = hotelBonus;
 		this.departureDay = departureDay;
-		this.initialDepartureDay = departureDay;
 		this.e1Bonus = e1Bonus;
 		this.e2Bonus = e2Bonus;
 		this.e3Bonus = e3Bonus;
@@ -58,9 +55,8 @@ public class Client implements Comparable<Client>{
 		initializeItemList();
 	}
 	
-	public void initializeItemList() {
+	public synchronized void initializeItemList() {
 		items.clear();
-		boolean[] possibleDays = new boolean[DAY_COUNT];
 		for(int i = arrivalDay;i<departureDay;i++) {
 			HotelItem hotel = new HotelItem();
 			hotel.setDay(i);
@@ -68,12 +64,11 @@ public class Client implements Comparable<Client>{
 				hotel.setType(hotelType);
 			}
 			items.add(hotel);
-			possibleDays[i] = true;
 		}
 		for(EventType type : EventType.values()) {
 			if(getBonus(type.getBonusConstant())>0) {
 				EventItem item = new EventItem();
-				item.setPossibleDays(possibleDays);
+				item.setPossibleDays(new boolean[DAY_COUNT]);
 				item.setType(type);
 				items.add(item);
 			}
@@ -120,7 +115,7 @@ public class Client implements Comparable<Client>{
 	 * 
 	 * @return {@link AllocationInfo}
 	 */
-	private AllocationInfo getAllocationInfo() {
+	private synchronized AllocationInfo getAllocationInfo() {
 		AllocationInfo info = new AllocationInfo();
 		
 		boolean[] allocatedHotelDays = new boolean[DAY_COUNT];
@@ -211,7 +206,7 @@ public class Client implements Comparable<Client>{
 	 * updates the list of the items regarding possible changes in arrival-and departure dates and so on
 	 * @throws Exception 
 	 */
-	private void updateItemList(AllocationInfo info){
+	private synchronized void updateItemList(AllocationInfo info){
 		
 		List<Item> itemsToRemove = new ArrayList<Item>();
 		for(Item item : items) {
@@ -263,7 +258,7 @@ public class Client implements Comparable<Client>{
 		items.removeAll(itemsToRemove);
 	}
 	
-	public void setHotelType(HotelType type) {
+	public synchronized void setHotelType(HotelType type) {
 		for(Item item : items) {
 			if(item instanceof HotelItem && !item.isSatisfied()) {
 				((HotelItem)item).setType(type);
@@ -343,8 +338,7 @@ public class Client implements Comparable<Client>{
 	 * 
 	 * @return
 	 */
-	public List<Item> whatToBuyNext(){
-		//updateItemList();
+	public synchronized List<Item> whatToBuyNext(){
 		List<Item> unsatisfiedItems = new ArrayList<Item>();
 		boolean[] bookedHotels = new boolean[DAY_COUNT];
 		for(Item item : items) {
@@ -391,7 +385,7 @@ public class Client implements Comparable<Client>{
 	 *
 	 * @param item the item
 	 */
-	public boolean bookItem(Item item, int actualPrice){
+	public synchronized boolean bookItem(Item item, int actualPrice){
 		item.setActualPrice(actualPrice);
 		boolean hit = false;
 		for(Item tmpItem : items) {
@@ -429,21 +423,6 @@ public class Client implements Comparable<Client>{
 		return null;
 	}
 
-	/**
-	 * Gives the overall expenses of the items already bought so far
-	 * 
-	 * @return overall expenses
-	 */
-	public int getCurrentExpenses() {
-		int expenses = 0;
-		for(Item item : items) {
-			if(item.isSatisfied()) {
-				expenses+=item.getActualPrice();
-			}
-		}
-		return expenses;
-	}
-	
 	public int getExpensesWithoutFlights() {
 		int expenses = 0;
 		for(Item item : items) {
@@ -467,36 +446,6 @@ public class Client implements Comparable<Client>{
 	}
 
 	/**
-	 * Indicates if the package bought so far is feasible or not
-	 * 
-	 * @return true if feasible, false otherwise
-	 */
-	public boolean isFeasible(){
-		int inFlight = -1;
-		int outFlight = -1;
-		boolean[] hotelBookings = new boolean[DAY_COUNT];
-		for(Item item : items) {
-			if(item.isSatisfied()) {
-				if(item instanceof FlightItem) {
-					FlightItem flightItem = (FlightItem)item;
-					switch (flightItem.getType()) {
-					case IN:inFlight = flightItem.getDay();break;
-					case OUT: outFlight = flightItem.getDay();break;
-					}
-				} else if (item instanceof HotelItem) {
-					hotelBookings[((HotelItem)item).getDay()] = true;
-				}
-			}
-		}
-		for(int i = inFlight; i< outFlight;i++) {
-			if(!hotelBookings[i]) {
-				return false;
-			}
-		}
-		return true;
-	}
-	
-	/**
 	 * looks up the bonus for field field
 	 *
 	 * @param field the field
@@ -512,21 +461,12 @@ public class Client implements Comparable<Client>{
 		}
 	}
 	
-	public int getInitialArrivalDay() {
-		return initialArrivalDay;
-	}
-	
-	public int getInitialDepartureDay() {
-		return initialDepartureDay;
-	}
-	
 	public int getArrivalDay() {
 		return arrivalDay;
 	}
 
 	public void setArrivalDay(int arrivalDay) {
 		this.arrivalDay = arrivalDay;
-		this.initialArrivalDay = arrivalDay;
 	}
 
 	public int getDepartureDay() {
@@ -535,7 +475,6 @@ public class Client implements Comparable<Client>{
 
 	public void setDepartureDay(int departureDay) {
 		this.departureDay = departureDay;
-		this.initialDepartureDay = departureDay;
 	}
 
 	public int getHotelBonus() {
@@ -576,16 +515,6 @@ public class Client implements Comparable<Client>{
 
 	public void setId(int id) {
 		this.id = id;
-	}
-
-
-	/**
-	 * add the method compareTo in order to have a set order by
-	 * for the moment by hotel desc
-	 */
-	@Override
-	public int compareTo(Client c){
-		return c.getHotelBonus() - hotelBonus;
 	}
 
 	@Override

@@ -17,15 +17,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import se.sics.tac.aw.AgentImpl;
 import se.sics.tac.aw.Bid;
 import se.sics.tac.aw.Quote;
 import se.sics.tac.aw.TACAgent;
-import se.sics.tac.aw.Transaction;
 import se.sics.tac.util.ArgEnumerator;
 
 import com.teamtaco.util.EventType;
@@ -43,10 +40,10 @@ public class Crapgent extends AgentImpl {
 	private static final String AVG_GOOD_HOTEL_PRICE = "avgGoodHotelPrice";
 	
 	private static final int DEFAULT_FLIGHT_COST = 375;
-	private static final int ITEM_SCORE_THRESHOLD = 15;
+	private static final int ITEM_SCORE_THRESHOLD = 25;
+	private static final int HOTEL_MAXBID_THRESHOLD = 25;
 	
-//	List<Client> clients = new ArrayList<Client>();
-	SortedSet<Client> clients = new TreeSet<Client>();
+	List<Client> clients = Collections.synchronizedList(new ArrayList<Client>());
 	private static final Logger log =
 		    Logger.getLogger(Crapgent.class.getName());
 	float[] prices= new float[28];
@@ -57,22 +54,13 @@ public class Crapgent extends AgentImpl {
 	List<EventItem> ownedItems = new ArrayList<EventItem>();
 	
 	/*
-	 * (non-Javadoc)
-	 * 
 	 * @see se.sics.tac.aw.AgentImpl#init(se.sics.tac.util.ArgEnumerator)
 	 */
 	@Override
-	protected void init(ArgEnumerator args) {
-		// just print out the args
-		while (args.hasNext()) {
-			String current = args.next();
-			String value = args.getArgument(current);
-			System.out.println(current + ": " + value);
-		}
-	}
+	protected void init(ArgEnumerator args) {}
 	
 	@Override
-	public void quoteUpdated(Quote quote) {
+	public synchronized void quoteUpdated(Quote quote) {
 		// here comes update of bids
 		int auction = quote.getAuction();
 		prices[auction] = quote.getAskPrice();
@@ -106,7 +94,6 @@ public class Crapgent extends AgentImpl {
 		updateEventBids(new EventManager(eventWrappers));
 	}
 	
-	// TODO probably call this method not only when quotes got updated but repeatedly every x seconds
 	private void updateEventBids(EventManager manager) {
 		// we only have to care about event-auctions obviously
 		EventWrapper highestUtility = null;
@@ -135,8 +122,6 @@ public class Crapgent extends AgentImpl {
 		}
 		
 		// if positive score -> buy (place bid and wait)
-		// TODO probably define threshold so that we at least increase our score by 10?
-		// effect could be, that the agent waits until he gets a better price
 		if(manager.getUtility(highestUtility, bestItem)>0) {
 			
 			// first check if we have items of this on our own
@@ -193,7 +178,7 @@ public class Crapgent extends AgentImpl {
 						agent.submitBid(bid);
 						i--;
 					}
-				} else if(agent.getGameTimeLeft()/1000 < 60 && manager.getNumberOfPotentialBuyers(item)==0) {
+				} else if(agent.getGameTimeLeft()/1000 < 60 && manager.getNumberOfPotentialBuyers(item)==0 && highestBid >15) {
 					// sell the crap in the last 60 seconds
 					ownedItems.remove(item);
 					Bid bid = new Bid(auction);
@@ -213,12 +198,7 @@ public class Crapgent extends AgentImpl {
 
 		if (TACAgent.getAuctionType(auction) == item.getType().getTacType()
 				&& TACAgent.getAuctionDay(auction) == item.getDay()
-				&& prices[auction]<item.getMaxPrice()) {
-//			if (item.getMaxPrice() >= prices[auction]){
-//				Bid bid = new Bid(auction);
-//				bid.addBidPoint(agent.getAllocation(auction), item.getMaxPrice());
-//				agent.submitBid(bid);
-//			}
+				&& prices[auction]<=item.getMaxPrice()) {
 			return true;
 			
 		}
@@ -266,16 +246,6 @@ public class Crapgent extends AgentImpl {
 		}
 	}
 	
-	@Override
-	public void quoteUpdated(int auctionCategory) {
-		//useless
-	}
-
-	@Override
-	public void transaction(Transaction transaction) {
-		//useless
-	}
-
 	/**
 	 * new information for the bid is available
 	 */
@@ -297,29 +267,13 @@ public class Crapgent extends AgentImpl {
 		}
 	}
 
-	/**
-	 * bid got rejected (bid.getRejectReason for the reason)
-	 */
-	@Override
-	public void bidRejected(Bid bid) {
-		// probably not so useless - have to look what 'rejection' actually means
-	}
-
-	/**
-	 * bid contained error
-	 */
-	@Override
-	public void bidError(Bid bid, int error) {
-		// pretty damn useless
-	}
-
 	/*
 	 * (non-Javadoc)
 	 * 
 	 * @see se.sics.tac.aw.AgentImpl#gameStarted()
 	 */
 	@Override
-	public void gameStarted() {
+	public synchronized void gameStarted() {
 		
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
@@ -481,7 +435,7 @@ public class Crapgent extends AgentImpl {
 	 * @see se.sics.tac.aw.AgentImpl#auctionClosed(int)
 	 */
 	@Override
-	public void auctionClosed(int auction) {
+	public synchronized void auctionClosed(int auction) {
 		// notification only necessary for Hotels
 		if(TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL) {
 			int quantity = agent.getOwn(auction);
@@ -529,25 +483,6 @@ public class Crapgent extends AgentImpl {
 		}
 	}
 	
-	/**
-	 * finds all clients that need the given {@link Item}
-	 * 
-	 * @param item the item
-	 * @return all clients that need the {@link Item} item
-	 */
-	public List<Client> findClientsByItem(Item item) {
-		List<Client> clients = new ArrayList<Client>();
-		for(Client client: this.clients) {
-			for(Item currItem : client.whatToBuyNext()) {
-				if(currItem.equals(item) && !currItem.isSatisfied()) {
-					clients.add(client);
-					break;
-				}
-			}
-		}
-		return clients;
-	}
-	
 	public float calculateMaxPrice(Client c, Item item){
 		
 		if (item instanceof HotelItem){
@@ -573,9 +508,12 @@ public class Crapgent extends AgentImpl {
 			//budget *=(0.75+dayPosFactor);
 			budget*=getDayWeight(c.getArrivalDay(), c.getDepartureDay(), hotel.getDay());	
 			
+			// consider penalties of 100
+			budget += 100;
+			
 			// because we won't always pay our max bid we can add a threshold
-			// also considers penalties of 100
-			budget += 150;
+			budget += HOTEL_MAXBID_THRESHOLD;
+			
 			// hotels that need connect two days with each other are more important
 			if(c.isInBetweenAllocatedDays(hotel)) {
 				budget +=100;
@@ -625,4 +563,10 @@ public class Crapgent extends AgentImpl {
 		}
 		return 0;
 	}
+
+	@Override
+	public void bidRejected(Bid bid) {}
+
+	@Override
+	public void bidError(Bid bid, int error) {}
 }
