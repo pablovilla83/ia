@@ -43,6 +43,7 @@ public class Crapgent extends AgentImpl {
 	private static final String AVG_GOOD_HOTEL_PRICE = "avgGoodHotelPrice";
 	
 	private static final int DEFAULT_FLIGHT_COST = 375;
+	private static final int ITEM_SCORE_THRESHOLD = 15;
 	
 //	List<Client> clients = new ArrayList<Client>();
 	SortedSet<Client> clients = new TreeSet<Client>();
@@ -120,7 +121,6 @@ public class Crapgent extends AgentImpl {
 				item.setBookedDay(TACAgent.getAuctionDay(auction));
 				item.setType(EventType.getTypeByTacType(type));
 				
-				// TODO teach agent to ignore 0-askprice items (they are actually not on sale I guess
 				if(agent.getQuote(auction).getAskPrice()>0) {
 					item.setActualPrice((int) agent.getQuote(auction).getAskPrice()+1);
 					EventWrapper wrapper = manager.getClientWithHighestBonus(item);
@@ -143,26 +143,30 @@ public class Crapgent extends AgentImpl {
 			Iterator<EventItem> it = ownedItems.iterator();
 			while(it.hasNext()) {
 				EventItem next = it.next();
-				
+				int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, next.getType().getTacType(), next.getBookedDay());
 				if(next.getType() == bestItem.getType()
-						&& next.getBookedDay() == bestItem.getBookedDay()) {
+						&& next.getBookedDay() == bestItem.getBookedDay()
+						&& agent.getQuote(auction).getBidPrice()<highestUtility.getClient().getBonus(next.getType().getTacType())) {
 					ownedItems.remove(next);
+					agent.setAllocation(auction, agent.getAllocation(auction)+1);
 					highestUtility.getItem().setBookedDay(next.getBookedDay());
 					highestUtility.getClient().bookItem(highestUtility.getItem(), next.getActualPrice());
 					return;
 				}
 			}
 			
-			int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, bestItem.getType().getTacType(), bestItem.getBookedDay());
-			agent.setAllocation(auction, agent.getAllocation(auction)+1);
-			Bid bid = new Bid(auction);
-			bid.addBidPoint(1, bestItem.getActualPrice());
-			agent.submitBid(bid);
-			highestUtility.getItem().setBookedDay(bestItem.getBookedDay());
-			highestUtility.getItem().setActualPrice(bestItem.getActualPrice());
-			
-			// even if we don't know if we won the auction we book the item as we have no further influence on it anyway
-			highestUtility.getClient().bookItem(highestUtility.getItem(), bestItem.getActualPrice());
+			if(manager.getUtility(highestUtility, bestItem)>ITEM_SCORE_THRESHOLD) {
+				int auction = TACAgent.getAuctionFor(TACAgent.CAT_ENTERTAINMENT, bestItem.getType().getTacType(), bestItem.getBookedDay());
+				agent.setAllocation(auction, agent.getAllocation(auction)+1);
+				Bid bid = new Bid(auction);
+				bid.addBidPoint(1, agent.getQuote(auction).getAskPrice()+0.1f);
+				agent.submitBid(bid);
+				highestUtility.getItem().setBookedDay(bestItem.getBookedDay());
+				highestUtility.getItem().setActualPrice(bestItem.getActualPrice());
+				
+				// even if we don't know if we won the auction we book the item as we have no further influence on it anyway
+				highestUtility.getClient().bookItem(highestUtility.getItem(), bestItem.getActualPrice());
+			}
 		}
 
 		// remove owned items if the best bonus of a client is lower than the askprice
@@ -427,6 +431,7 @@ public class Crapgent extends AgentImpl {
 			System.out.println("no previous game data");
 		} else {
 			gameCount = Float.parseFloat(gameCountString);
+			gameCount = gameCount >9? 9 : gameCount;
 			avgCheap = Float.parseFloat(avgCheapString);
 			avgGood = Float.parseFloat(avgGoodString);
 		}
