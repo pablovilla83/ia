@@ -25,6 +25,7 @@ import se.sics.tac.aw.Quote;
 import se.sics.tac.aw.TACAgent;
 import se.sics.tac.util.ArgEnumerator;
 
+import com.teamtaco.crap.Tweeter;
 import com.teamtaco.util.EventType;
 import com.teamtaco.util.FlightType;
 import com.teamtaco.util.HotelType;
@@ -220,6 +221,8 @@ public class Crapgent extends AgentImpl {
 				agent.submitBid(bid);
 			}
 		}
+		
+		Tweeter.tweet("Take that you stupid other agents!");
 	}
 	
 	private void manageFlightBid(Client client, FlightItem item, int auction) {
@@ -274,6 +277,8 @@ public class Crapgent extends AgentImpl {
 	 */
 	@Override
 	public synchronized void gameStarted() {
+		
+		Tweeter.tweet("Next TAC started. Let's do it!");
 		
 		// put clients in a wrapper that simplifies other tasks
 		clients.clear();
@@ -440,6 +445,8 @@ public class Crapgent extends AgentImpl {
 		if(TACAgent.getAuctionCategory(auction) == TACAgent.CAT_HOTEL) {
 			int quantity = agent.getOwn(auction);
 			Quote quote = agent.getQuote(auction);
+			
+			Tweeter.tweet("Just won " + agent.getOwn(auction) + " Hotels for "+quote.getAskPrice()+" at"+System.currentTimeMillis() +"!");
 			
 			HotelType type = HotelType.getTypeForConstant(TACAgent.getAuctionType(auction));
 			
