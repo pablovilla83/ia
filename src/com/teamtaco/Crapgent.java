@@ -328,7 +328,7 @@ public class Crapgent extends AgentImpl {
 			avgHotelBonus /= 8;
 		}
 		for(Client client : clients) {
-			if(client.getHotelBonus() > avgHotelBonus) {
+			if(client.getHotelBonus()/(client.getDepartureDay()-client.getArrivalDay()) > avgHotelBonus) {
 				client.setHotelType(HotelType.GOOD);
 			} else {
 				client.setHotelType(HotelType.CHEAP);
